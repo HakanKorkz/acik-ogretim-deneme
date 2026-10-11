@@ -21,9 +21,13 @@ final class QuestionWriter implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    /**
+     * @param  list<string>  $styleExamples  Aynı dersin gerçek çıkmış soruları.
+     */
     public function __construct(
         private string $sourceText,
         private int $count,
+        private array $styleExamples = [],
     ) {}
 
     public function instructions(): string
@@ -97,8 +101,14 @@ final class QuestionWriter implements Agent, HasStructuredOutput
      */
     public function payload(): string
     {
+        $examples = $this->styleExamples === []
+            ? ''
+            : "Bu dersin gerçek AÖL sınavlarında sorulmuş örnek sorular. Yalnızca üslup ve\n"
+                ."zorluk için örnek al; bunları ya da bilgilerini kopyalama:\n\n"
+                .implode("\n\n---\n\n", $this->styleExamples)."\n\n";
+
         return <<<PROMPT
-        Aşağıdaki ders kitabı bölümünden {$this->count} adet soru üret.
+        {$examples}Aşağıdaki ders kitabı bölümünden {$this->count} adet soru üret.
 
         METİN:
         """

@@ -42,7 +42,7 @@ class QuestionBankImporter
     {
         $pages = $this->scopePages($course);
 
-        $generated = $this->usable($this->generator->generate($this->sourceText($course, $pages), $count));
+        $generated = $this->usable($this->generator->generate($this->sourceText($course, $pages), $count, $this->styleExamples($course)));
 
         if ($generated === []) {
             return 0;
@@ -71,7 +71,7 @@ class QuestionBankImporter
             $pages = $pages->slice($start, self::APPEND_WINDOW_PAGES)->values();
         }
 
-        $generated = $this->usable($this->generator->generate($this->sourceText($course, $pages), $count));
+        $generated = $this->usable($this->generator->generate($this->sourceText($course, $pages), $count, $this->styleExamples($course)));
 
         $existing = $course->questions()
             ->pluck('text')
@@ -158,6 +158,35 @@ class QuestionBankImporter
         $course->questions()->whereIn('source', $generatedSources)->doesntHave('examAnswers')->forceDelete();
 
         $course->questions()->whereIn('source', $generatedSources)->delete();
+    }
+
+    /**
+     * Dersin çıkmış sorularından rastgele birkaçı; yapay zekâya üslup örneği
+     * olarak verilir. Dersin çıkmış sorusu yoksa aynı ders grubundan alınır.
+     *
+     * @return list<string>
+     */
+    private function styleExamples(Course $course, int $count = 4): array
+    {
+        $query = Question::query()
+            ->with('options')
+            ->where('source', QuestionSource::PastExam)
+            ->inRandomOrder()
+            ->limit($count);
+
+        $questions = (clone $query)->whereBelongsTo($course)->get();
+
+        if ($questions->isEmpty() && filled($course->subject)) {
+            $questions = $query->whereHas('course', fn ($builder) => $builder
+                ->where('subject', $course->subject)
+                ->where('level', $course->level))->get();
+        }
+
+        return array_values($questions->map(static fn (Question $question): string => trim(implode("\n", array_filter([
+            $question->passage,
+            $question->text,
+            ...$question->options->map(fn ($option): string => "{$option->label}) {$option->text}")->all(),
+        ]))))->all());
     }
 
     /**

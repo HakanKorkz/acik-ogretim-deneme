@@ -47,6 +47,53 @@ class PdfTextExtractor
     }
 
     /**
+     * Belirtilen sayfalardaki kelimeleri sayfa üzerindeki konumlarıyla
+     * (`pdftotext -bbox`) döndürür. Sütunlu tabloları (ör. cevap anahtarı)
+     * geometrik olarak okumak için kullanılır. `pdftotext` yoksa null döner.
+     *
+     * @param  list<int>  $pageNumbers
+     * @return array<int, list<array{text: string, x: float, y: float, right: float}>>|null
+     */
+    public function extractWords(string $path, array $pageNumbers): ?array
+    {
+        if (! is_file($path) || ! is_readable($path)) {
+            throw new RuntimeException("PDF dosyası okunamadı: {$path}");
+        }
+
+        $words = [];
+
+        foreach ($pageNumbers as $pageNumber) {
+            try {
+                $process = new Process(['pdftotext', '-bbox', '-f', (string) $pageNumber, '-l', (string) $pageNumber, $path, '-']);
+                $process->setTimeout(120);
+                $process->run();
+            } catch (Throwable) {
+                return null;
+            }
+
+            if (! $process->isSuccessful()) {
+                return null;
+            }
+
+            preg_match_all(
+                '/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="[\d.]+">(.*?)<\/word>/u',
+                $process->getOutput(),
+                $matches,
+                PREG_SET_ORDER,
+            );
+
+            $words[$pageNumber] = array_map(static fn (array $match): array => [
+                'text' => html_entity_decode($match[4], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'x' => (float) $match[1],
+                'y' => (float) $match[2],
+                'right' => (float) $match[3],
+            ], $matches);
+        }
+
+        return $words;
+    }
+
+    /**
      * `pdftotext` ile sayfaları çıkarır. Kullanılamıyorsa null döner.
      *
      * @return array<int, string>|null

@@ -23,13 +23,16 @@ use Illuminate\Support\Carbon;
  * @property string $correct_option
  * @property QuestionSource $source
  * @property int|null $source_page Kitabın basılı sayfa numarası.
+ * @property int|null $past_exam_section_id
+ * @property int|null $past_exam_number Çıkmış sınav kitapçığındaki soru numarası.
+ * @property-read PastExamSection|null $pastExamSection
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Course $course
  * @property-read Collection<int, Option> $options
  */
-#[Fillable(['course_id', 'passage', 'text', 'correct_option', 'source', 'source_page'])]
+#[Fillable(['course_id', 'passage', 'text', 'correct_option', 'source', 'source_page', 'past_exam_section_id', 'past_exam_number'])]
 class Question extends Model
 {
     /** @use HasFactory<QuestionFactory> */
@@ -53,6 +56,16 @@ class Question extends Model
     public function options(): HasMany
     {
         return $this->hasMany(Option::class)->orderBy('label');
+    }
+
+    /**
+     * Çıkmış soruysa, geldiği kitapçık bölümü.
+     *
+     * @return BelongsTo<PastExamSection, $this>
+     */
+    public function pastExamSection(): BelongsTo
+    {
+        return $this->belongsTo(PastExamSection::class);
     }
 
     /**

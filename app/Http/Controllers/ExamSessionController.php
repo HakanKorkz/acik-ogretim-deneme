@@ -182,7 +182,7 @@ class ExamSessionController extends Controller
 
         abort_unless($section->isCompleted(), 404);
 
-        $section->load(['course', 'answers.question.options', 'answers.option']);
+        $section->load(['course', 'answers.question.options', 'answers.question.pastExamSection.pastExam', 'answers.option']);
 
         return Inertia::render('exams/section-result', [
             'exam' => $this->examSummary($examSession->load('sections.course')),
@@ -200,7 +200,7 @@ class ExamSessionController extends Controller
             return to_route('exams.show', $examSession);
         }
 
-        $examSession->load(['sections.course', 'sections.answers.question.options', 'sections.answers.option']);
+        $examSession->load(['sections.course', 'sections.answers.question.options', 'sections.answers.question.pastExamSection.pastExam', 'sections.answers.option']);
 
         $results = $examSession->sections
             ->map(fn (ExamSection $section): array => $this->sectionResultData($section))
@@ -289,7 +289,9 @@ class ExamSessionController extends Controller
                         static fn (array $option): array => ['label' => $option['label'], 'text' => $option['text'], 'isCorrect' => $option['is_correct']],
                         $options,
                     ),
-                    'source' => $question->source->label(),
+                    'source' => $question->pastExamSection !== null
+                        ? "Çıkmış soru · {$question->pastExamSection->pastExam->title}, {$question->past_exam_number}. soru"
+                        : $question->source->label(),
                     'isPastExam' => $question->source === QuestionSource::PastExam,
                     'sourcePage' => $question->source_page,
                     'bookUrl' => $question->source_page !== null && filled($course->source_url)

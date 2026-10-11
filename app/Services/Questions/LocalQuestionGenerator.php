@@ -140,7 +140,7 @@ class LocalQuestionGenerator implements QuestionGenerator
      */
     private const NUMBER_OFFSETS = [-23, -12, -7, -4, 3, 6, 11, 19];
 
-    public function generate(string $sourceText, int $count = 10): array
+    public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
     {
         if ($count < 1) {
             return [];

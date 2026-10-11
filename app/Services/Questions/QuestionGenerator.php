@@ -26,7 +26,11 @@ interface QuestionGenerator
      * - `text`: soru kökü; `passage`: varsa giriş metni (parça, öncüller).
      * - `source`: `ai` ya da `local`.
      *
+     * `$styleExamples`, aynı dersin gerçek çıkmış sorularıdır; destekleyen
+     * üreticiler bunları yalnızca üslup örneği olarak kullanır.
+     *
+     * @param  list<string>  $styleExamples
      * @return list<GeneratedQuestion>
      */
-    public function generate(string $sourceText, int $count = 10): array;
+    public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array;
 }

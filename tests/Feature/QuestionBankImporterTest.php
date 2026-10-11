@@ -17,7 +17,7 @@ function bindAlwaysFirstOptionGenerator(string $prefix = 'Soru'): void
     {
         public function __construct(private string $prefix) {}
 
-        public function generate(string $sourceText, int $count = 10): array
+        public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
         {
             return array_map(fn (int $number): array => [
                 'text' => "{$this->prefix} {$number}?",
@@ -96,7 +96,7 @@ test('ekleme modu mevcut soruları korur ve aynı metinli soruları atlar', func
 test('yapay zekâ sorusunun giriş metni ve kaynak sayfası kaydedilir', function () {
     app()->instance(QuestionGenerator::class, new class implements QuestionGenerator
     {
-        public function generate(string $sourceText, int $count = 10): array
+        public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
         {
             return [[
                 'passage' => "I. Birinci öncül\nII. İkinci öncül",
@@ -131,7 +131,7 @@ test('kaynak metin basılı sayfa işaretleriyle gönderilir', function () {
     {
         public function __construct(private ArrayObject $received) {}
 
-        public function generate(string $sourceText, int $count = 10): array
+        public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
         {
             $this->received['text'] = $sourceText;
 
@@ -152,7 +152,7 @@ test('soru üretimine yalnızca sorumluluk aralığındaki sayfalar gönderilir'
     {
         public function __construct(private ArrayObject $received) {}
 
-        public function generate(string $sourceText, int $count = 10): array
+        public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
         {
             $this->received['text'] = $sourceText;
 

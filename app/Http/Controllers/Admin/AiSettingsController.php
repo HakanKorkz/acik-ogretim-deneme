@@ -6,14 +6,11 @@ use App\Ai\Agents\QuestionWriter;
 use App\Enums\AiProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AiSettingsRequest;
-use App\Services\Questions\AiQuestionGenerator;
+use App\Services\Ai\AiModelChain;
 use App\Settings\AiSettings;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
-use Laravel\Ai\Ai;
-use Laravel\Ai\Responses\StructuredAgentResponse;
-use Throwable;
 
 class AiSettingsController extends Controller
 {
@@ -75,41 +72,27 @@ class AiSettingsController extends Controller
      * Kayıtlı ayarlarla küçük bir deneme isteği gönderir ve ilk yanıt veren
      * modeli bildirir.
      */
-    public function test(AiSettings $settings): RedirectResponse
+    public function test(AiSettings $settings, AiModelChain $chain): RedirectResponse
     {
         $provider = $settings->activeProvider();
-        $key = $settings->keyFor($provider);
 
-        if ($key === null) {
+        if ($settings->keyFor($provider) === null) {
             return back()->with('error', "{$provider->label()} için anahtar tanımlı değil.");
         }
-
-        Ai::build([
-            'name' => AiQuestionGenerator::PROVIDER_NAME,
-            'driver' => $provider->lab()->value,
-            'key' => $key,
-        ]);
 
         $agent = new QuestionWriter(
             'Türkiye Büyük Millet Meclisi 23 Nisan 1920 tarihinde Ankara\'da açıldı.',
             1,
         );
-        $failures = [];
+        $model = $chain->run(
+            $agent,
+            $agent->payload(),
+            static fn (array $output, string $model): ?string => is_array($output['questions'] ?? null) && $output['questions'] !== [] ? $model : null,
+            timeout: 60,
+        );
 
-        foreach ($settings->models as $model) {
-            try {
-                $response = $agent->prompt($agent->payload(), provider: AiQuestionGenerator::PROVIDER_NAME, model: $model, timeout: 60);
-
-                if ($response instanceof StructuredAgentResponse && is_array($response['questions'] ?? null) && $response['questions'] !== []) {
-                    return back()->with('success', "Bağlantı başarılı. İlk yanıt veren model: {$model}");
-                }
-
-                $failures[] = "{$model}: boş yanıt";
-            } catch (Throwable $exception) {
-                $failures[] = "{$model}: ".mb_substr($exception->getMessage(), 0, 120);
-            }
-        }
-
-        return back()->with('error', 'Hiçbir model yanıt vermedi. '.implode(' | ', $failures));
+        return $model !== null
+            ? back()->with('success', "Bağlantı başarılı. İlk yanıt veren model: {$model}")
+            : back()->with('error', 'Hiçbir model geçerli yanıt vermedi. Ayrıntılar uygulama günlüğünde.');
     }
 }

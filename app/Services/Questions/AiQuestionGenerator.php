@@ -3,12 +3,8 @@
 namespace App\Services\Questions;
 
 use App\Ai\Agents\QuestionWriter;
+use App\Services\Ai\AiModelChain;
 use App\Settings\AiSettings;
-use Illuminate\Support\Facades\Log;
-use Laravel\Ai\Ai;
-use Laravel\Ai\Responses\StructuredAgentResponse;
-use RuntimeException;
-use Throwable;
 
 /**
  * Panelde seçilen yapay zekâ sağlayıcısıyla (OpenRouter, OpenAI, Anthropic)
@@ -24,31 +20,25 @@ use Throwable;
  */
 class AiQuestionGenerator implements QuestionGenerator
 {
-    /**
-     * Çalışma anında oluşturulan sağlayıcının adı.
-     */
-    public const PROVIDER_NAME = 'exam_questions';
-
     /** @var array<int, string> */
     private const LABELS = ['A', 'B', 'C', 'D'];
 
     public function __construct(
         private readonly AiSettings $settings,
+        private readonly AiModelChain $chain,
         private readonly LocalQuestionGenerator $fallback,
         private readonly QuestionQualityGuard $guard,
     ) {}
 
-    public function generate(string $sourceText, int $count = 10): array
+    public function generate(string $sourceText, int $count = 10, array $styleExamples = []): array
     {
         if ($count < 1 || trim($sourceText) === '') {
             return [];
         }
 
-        if (! $this->settings->configured()) {
+        if (! $this->chain->isConfigured()) {
             return $this->fallback->generate($sourceText, $count);
         }
-
-        $this->registerProvider();
 
         $perRequest = max(1, $this->settings->questions_per_request);
         $sections = $this->split($sourceText, (int) ceil($count / $perRequest));
@@ -61,7 +51,7 @@ class AiQuestionGenerator implements QuestionGenerator
             // Kalan soruları kalan bölümlere eşit dağıt.
             $wanted = (int) ceil($remaining / (count($sections) - $index));
 
-            $this->collect($questions, $this->generateForSection($section, $wanted), $wanted);
+            $this->collect($questions, $this->generateForSection($section, $wanted, $styleExamples), $wanted);
 
             $remaining = $count - count($questions);
 
@@ -79,58 +69,22 @@ class AiQuestionGenerator implements QuestionGenerator
     }
 
     /**
-     * Seçili sağlayıcıyı panel anahtarıyla laravel/ai'ye tanıtır.
-     */
-    private function registerProvider(): void
-    {
-        $provider = $this->settings->activeProvider();
-
-        Ai::build([
-            'name' => self::PROVIDER_NAME,
-            'driver' => $provider->lab()->value,
-            'key' => $this->settings->keyFor($provider),
-        ]);
-    }
-
-    /**
      * Bir bölüm için modelleri sırayla dener; hiçbiri olmazsa yerel üreticiye düşer.
      *
+     * @param  list<string>  $styleExamples
      * @return array<int, GeneratedQuestion>
      */
-    private function generateForSection(string $section, int $count): array
+    private function generateForSection(string $section, int $count, array $styleExamples): array
     {
-        $agent = new QuestionWriter($this->sample($section), $count);
+        $agent = new QuestionWriter($this->sample($section), $count, $styleExamples);
 
-        foreach ($this->settings->models as $model) {
-            try {
-                $response = $agent->prompt(
-                    $agent->payload(),
-                    provider: self::PROVIDER_NAME,
-                    model: $model,
-                    timeout: (int) config('exam.ai.timeout'),
-                );
+        $questions = $this->chain->run(
+            $agent,
+            $agent->payload(),
+            fn (array $output): array => $this->normalize($output['questions'] ?? null, $count),
+        );
 
-                if (! $response instanceof StructuredAgentResponse) {
-                    throw new RuntimeException('Model yapılandırılmış yanıt döndürmedi.');
-                }
-
-                $questions = $this->normalize($response['questions'] ?? null, $count);
-
-                if ($questions === []) {
-                    throw new RuntimeException('Model geçerli soru döndürmedi.');
-                }
-
-                return $questions;
-            } catch (Throwable $exception) {
-                Log::warning('Yapay zekâ ile soru üretimi başarısız, sıradaki model deneniyor.', [
-                    'provider' => $this->settings->provider,
-                    'model' => $model,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        }
-
-        return $this->fallback->generate($section, $count);
+        return $questions ?? $this->fallback->generate($section, $count);
     }
 
     /**
