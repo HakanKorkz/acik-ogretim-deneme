@@ -55,6 +55,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('exam-start', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
 
         RateLimiter::for('exam-submit', fn (Request $request): Limit => Limit::perMinute(20)->by($request->ip()));
+
+        // Her şık seçimi anında kaydedilir; hızlı işaretlemeye yetecek kadar geniş.
+        RateLimiter::for('exam-answer', fn (Request $request): Limit => Limit::perMinute(240)->by($request->ip()));
     }
 
     /**

@@ -19,6 +19,8 @@ use Throwable;
  * Her bölümde modeller panelde verilen sırayla denenir. Hiçbiri geçerli
  * yanıt vermezse o bölüm yerel üreticiyle (LocalQuestionGenerator)
  * tamamlanır; sistem her koşulda çalışmaya devam eder.
+ *
+ * @phpstan-import-type GeneratedQuestion from QuestionGenerator
  */
 class AiQuestionGenerator implements QuestionGenerator
 {
@@ -33,6 +35,7 @@ class AiQuestionGenerator implements QuestionGenerator
     public function __construct(
         private readonly AiSettings $settings,
         private readonly LocalQuestionGenerator $fallback,
+        private readonly QuestionQualityGuard $guard,
     ) {}
 
     public function generate(string $sourceText, int $count = 10): array
@@ -50,7 +53,7 @@ class AiQuestionGenerator implements QuestionGenerator
         $perRequest = max(1, $this->settings->questions_per_request);
         $sections = $this->split($sourceText, (int) ceil($count / $perRequest));
 
-        /** @var array<string, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}> $questions */
+        /** @var array<string, GeneratedQuestion> $questions */
         $questions = [];
         $remaining = $count;
 
@@ -92,7 +95,7 @@ class AiQuestionGenerator implements QuestionGenerator
     /**
      * Bir bölüm için modelleri sırayla dener; hiçbiri olmazsa yerel üreticiye düşer.
      *
-     * @return array<int, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}>
+     * @return array<int, GeneratedQuestion>
      */
     private function generateForSection(string $section, int $count): array
     {
@@ -133,7 +136,7 @@ class AiQuestionGenerator implements QuestionGenerator
     /**
      * Modelin yapılandırılmış yanıtını doğrulayıp standart yapıya çevirir.
      *
-     * @return array<int, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}>
+     * @return array<int, GeneratedQuestion>
      */
     private function normalize(mixed $items, int $count): array
     {
@@ -146,7 +149,7 @@ class AiQuestionGenerator implements QuestionGenerator
         foreach ($items as $item) {
             $question = $this->normalizeQuestion($item);
 
-            if ($question !== null) {
+            if ($question !== null && $this->guard->passes($question)) {
                 $questions[] = $question;
             }
 
@@ -159,7 +162,7 @@ class AiQuestionGenerator implements QuestionGenerator
     }
 
     /**
-     * @return array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}|null
+     * @return GeneratedQuestion|null
      */
     private function normalizeQuestion(mixed $item): ?array
     {
@@ -199,18 +202,24 @@ class AiQuestionGenerator implements QuestionGenerator
             ];
         }
 
+        $passage = trim(is_string($item['passage'] ?? null) ? $item['passage'] : '');
+        $page = $item['page'] ?? null;
+
         return [
             'text' => $text,
+            'passage' => $passage === '' ? null : $passage,
             'correct_option' => self::LABELS[$correctIndex],
             'options' => $options,
+            'source' => 'ai',
+            'source_page' => is_int($page) && $page > 0 ? $page : null,
         ];
     }
 
     /**
      * Yeni soruları, aynı metinli olanları atlayarak listeye ekler.
      *
-     * @param  array<string, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}>  $questions
-     * @param  array<int, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>}>  $candidates
+     * @param  array<string, GeneratedQuestion>  $questions
+     * @param  array<int, GeneratedQuestion>  $candidates
      */
     private function collect(array &$questions, array $candidates, int $limit): void
     {

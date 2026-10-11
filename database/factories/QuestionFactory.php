@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\QuestionSource;
 use App\Models\Course;
 use App\Models\Question;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -22,7 +23,16 @@ class QuestionFactory extends Factory
             'course_id' => Course::factory(),
             'text' => '______ boşluğu en doğru şekilde tamamlayan seçenek hangisidir? '.fake()->sentence(),
             'correct_option' => fake()->randomElement(['A', 'B', 'C', 'D']),
+            'source' => QuestionSource::Ai,
         ];
+    }
+
+    /**
+     * MEB çıkmış sınav sorusu.
+     */
+    public function pastExam(): static
+    {
+        return $this->state(fn (array $attributes): array => ['source' => QuestionSource::PastExam]);
     }
 
     /**

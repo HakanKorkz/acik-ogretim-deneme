@@ -1,212 +1,334 @@
-import { store as startExam } from '@/actions/App/Http/Controllers/ExamSessionController';
 import FlashMessage from '@/components/flash-message';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { index as coursesIndex } from '@/routes/courses';
+import { home } from '@/routes';
+import { store as startExam } from '@/routes/exams';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface CourseItem {
-    id: number;
-    name: string;
     slug: string;
-    description: string | null;
-    questions_count: number;
-    exam_sessions_count: number;
+    name: string;
+    subject: string | null;
+    pastCount: number;
+    generatedCount: number;
 }
 
-interface Stats {
-    courses: number;
-    questions: number;
-    sessions: number;
-    completed: number;
+interface Choice {
+    value: string;
+    label: string;
 }
 
 interface Props {
+    level: { value: string; label: string };
     courses: CourseItem[];
-    stats: Stats;
-    questionsPerExam: number;
-    level: string;
-    levels: { value: string; label: string }[];
+    pools: Choice[];
+    resultModes: Choice[];
+    maxCourses: number;
+    questionsPerCourse: number;
+    sectionMinutes: number;
 }
 
-function StatCard({
-    label,
-    value,
-    accent,
-}: {
-    label: string;
-    value: number;
-    accent: string;
-}) {
-    return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
-                {label}
-            </p>
-            <p className={`mt-2 text-3xl font-bold ${accent}`}>{value}</p>
-        </div>
-    );
+function availableIn(course: CourseItem, pool: string): number {
+    if (pool === 'past_exam') {
+        return course.pastCount;
+    }
+
+    if (pool === 'generated') {
+        return course.generatedCount;
+    }
+
+    return course.pastCount + course.generatedCount;
 }
 
-function CoursesIndex({
-    courses,
-    stats,
-    questionsPerExam,
+function CourseSelection({
     level,
-    levels,
+    courses,
+    pools,
+    resultModes,
+    maxCourses,
+    questionsPerCourse,
+    sectionMinutes,
 }: Props) {
-    const [busy, setBusy] = useState<string | null>(null);
+    const [selected, setSelected] = useState<string[]>([]);
+    const [step, setStep] = useState<'courses' | 'options'>('courses');
+    const [pool, setPool] = useState('mixed');
+    const [resultMode, setResultMode] = useState('per_course');
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [submitting, setSubmitting] = useState(false);
 
-    const start = (course: CourseItem) => {
-        setBusy(course.slug);
+    const groups = useMemo(() => {
+        const bySubject = new Map<string, CourseItem[]>();
+
+        for (const course of courses) {
+            const subject = course.subject ?? 'Diğer';
+            bySubject.set(subject, [...(bySubject.get(subject) ?? []), course]);
+        }
+
+        return [...bySubject.entries()];
+    }, [courses]);
+
+    const selectedCourses = courses.filter((course) =>
+        selected.includes(course.slug),
+    );
+    const missingInPool = selectedCourses.filter(
+        (course) => availableIn(course, pool) === 0,
+    );
+
+    const toggle = (slug: string) => {
+        setSelected((current) =>
+            current.includes(slug)
+                ? current.filter((item) => item !== slug)
+                : current.length >= maxCourses
+                  ? current
+                  : [...current, slug],
+        );
+    };
+
+    const submit = () => {
         router.post(
-            startExam.url(course.slug),
-            {},
-            { onFinish: () => setBusy(null) },
+            startExam.url(),
+            {
+                level: level.value,
+                courses: selected,
+                pool,
+                result_mode: resultMode,
+            },
+            {
+                onStart: () => setSubmitting(true),
+                onFinish: () => setSubmitting(false),
+                onError: (validationErrors) => setErrors(validationErrors),
+            },
         );
     };
 
     return (
         <>
-            <Head title="Dersler" />
+            <Head title={`${level.label} - Ders Seçimi`} />
 
-            <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 p-8 text-white shadow-xl shadow-indigo-500/20 sm:p-10">
-                <p className="text-sm font-medium text-white/80">
-                    Online Test ve Sınav Otomasyon Sistemi
-                </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-                    Bugün hangi dersi test edelim?
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm text-white/80 sm:text-base">
-                    Ders kitaplarından otomatik üretilen çoktan seçmeli
-                    sorularla kendini dene. Her sınav, soru bankasından rastgele
-                    seçilen {questionsPerExam} sorudan oluşur.
-                </p>
-            </section>
+            <Link
+                href={home.url()}
+                className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+                ← Kademe seçimi
+            </Link>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                {level.label}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {step === 'courses'
+                    ? `Sınava gireceğin dersleri seç (en az 1, en fazla ${maxCourses}). Dersler sırayla, her biri ${questionsPerCourse} soru ve ${sectionMinutes} dakika olarak çözülür.`
+                    : 'Soru türünü ve sonuçların nasıl gösterileceğini seç.'}
+            </p>
 
-            <div className="mt-8">
+            <div className="mt-6">
                 <FlashMessage />
-                <div className="mb-6 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
-                    {levels.map((item) => (
-                        <Link
-                            key={item.value}
-                            href={coursesIndex.url({
-                                query: { level: item.value },
-                            })}
-                            preserveScroll
-                            className={cn(
-                                'flex-1 rounded-lg px-3 py-2 text-center text-sm font-medium transition',
-                                level === item.value
-                                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white'
-                                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300',
-                            )}
+            </div>
+
+            {step === 'courses' ? (
+                <>
+                    {courses.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+                            Bu kademede henüz sınava hazır ders yok.
+                        </div>
+                    )}
+
+                    <div className="grid gap-6">
+                        {groups.map(([subject, items]) => (
+                            <section key={subject}>
+                                <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+                                    {subject}
+                                </h2>
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    {items.map((course) => {
+                                        const isSelected = selected.includes(
+                                            course.slug,
+                                        );
+                                        const total =
+                                            course.pastCount +
+                                            course.generatedCount;
+                                        const isDisabled =
+                                            total === 0 ||
+                                            (!isSelected &&
+                                                selected.length >= maxCourses);
+
+                                        return (
+                                            <button
+                                                key={course.slug}
+                                                type="button"
+                                                onClick={() =>
+                                                    toggle(course.slug)
+                                                }
+                                                disabled={isDisabled}
+                                                aria-pressed={isSelected}
+                                                className={cn(
+                                                    'flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50',
+                                                    isSelected
+                                                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20 dark:bg-indigo-950/40'
+                                                        : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900',
+                                                )}
+                                            >
+                                                <span>
+                                                    <span className="block font-medium">
+                                                        {course.name}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {total === 0
+                                                            ? 'Sorular hazırlanıyor'
+                                                            : course.pastCount >
+                                                                0
+                                                              ? `${course.pastCount} çıkmış soru · ${course.generatedCount} soru`
+                                                              : `${course.generatedCount} soru`}
+                                                    </span>
+                                                </span>
+                                                <span
+                                                    className={cn(
+                                                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold',
+                                                        isSelected
+                                                            ? 'border-indigo-600 bg-indigo-600 text-white'
+                                                            : 'border-slate-300 dark:border-slate-600',
+                                                    )}
+                                                >
+                                                    {isSelected ? '✓' : ''}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
+
+                    <div className="sticky bottom-4 mt-8 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                        <p className="text-sm">
+                            <strong>{selected.length}</strong> / {maxCourses}{' '}
+                            ders seçildi
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setStep('options')}
+                            disabled={selected.length === 0}
+                            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            {item.label}
-                        </Link>
-                    ))}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCard
-                    label="Ders"
-                    value={stats.courses}
-                    accent="text-indigo-600 dark:text-indigo-400"
-                />
-                <StatCard
-                    label="Soru"
-                    value={stats.questions}
-                    accent="text-violet-600 dark:text-violet-400"
-                />
-                <StatCard
-                    label="Oturum"
-                    value={stats.sessions}
-                    accent="text-sky-600 dark:text-sky-400"
-                />
-                <StatCard
-                    label="Tamamlanan"
-                    value={stats.completed}
-                    accent="text-emerald-600 dark:text-emerald-400"
-                />
-            </div>
-
-            <div className="mt-10 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Dersler</h2>
-                <span className="text-sm text-slate-500 dark:text-slate-400">
-                    {courses.length} ders
-                </span>
-            </div>
-
-            {courses.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                    Henüz ders bulunmuyor. PDF dosyalarını{' '}
-                    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs dark:bg-slate-800">
-                        public/dersler
-                    </code>{' '}
-                    dizinine ekleyip{' '}
-                    <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs dark:bg-slate-800">
-                        php artisan courses:scan
-                    </code>{' '}
-                    komutunu çalıştırın.
-                </div>
+                            Devam et →
+                        </button>
+                    </div>
+                </>
             ) : (
-                <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {courses.map((course) => {
-                        const isBusy = busy === course.slug;
-                        const hasQuestions = course.questions_count > 0;
+                <div className="grid max-w-3xl gap-6">
+                    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <h2 className="font-semibold">
+                            Seçilen dersler (çözülme sırası)
+                        </h2>
+                        <ol className="mt-3 grid gap-1 text-sm">
+                            {selectedCourses.map((course, index) => (
+                                <li key={course.slug}>
+                                    {index + 1}. {course.name}
+                                    {availableIn(course, pool) === 0 && (
+                                        <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                                            (bu soru türünde sorusu yok,
+                                            atlanacak)
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ol>
+                        <button
+                            type="button"
+                            onClick={() => setStep('courses')}
+                            className="mt-3 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                        >
+                            Dersleri değiştir
+                        </button>
+                        {errors.courses && (
+                            <p className="mt-2 text-sm text-rose-600">
+                                {errors.courses}
+                            </p>
+                        )}
+                    </section>
 
-                        return (
-                            <article
-                                key={course.id}
-                                className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <h3 className="text-base font-semibold tracking-tight">
-                                        {course.name}
-                                    </h3>
-                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-sm font-bold text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300">
-                                        {course.questions_count}
-                                    </span>
-                                </div>
+                    <fieldset className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <legend className="px-1 font-semibold">
+                            Soru türü
+                        </legend>
+                        <div className="mt-2 grid gap-2">
+                            {pools.map((option) => (
+                                <label
+                                    key={option.value}
+                                    className="flex items-center gap-3 text-sm"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="pool"
+                                        value={option.value}
+                                        checked={pool === option.value}
+                                        onChange={() => setPool(option.value)}
+                                    />
+                                    {option.label}
+                                </label>
+                            ))}
+                        </div>
+                        {missingInPool.length === selectedCourses.length && (
+                            <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+                                Seçtiğin derslerde bu türden soru yok; başka bir
+                                soru türü seç.
+                            </p>
+                        )}
+                    </fieldset>
 
-                                <p className="mt-2 line-clamp-2 min-h-10 text-sm text-slate-500 dark:text-slate-400">
-                                    {course.description ??
-                                        'Bu ders için açıklama bulunmuyor.'}
-                                </p>
+                    <fieldset className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <legend className="px-1 font-semibold">Sonuçlar</legend>
+                        <div className="mt-2 grid gap-2">
+                            {resultModes.map((option) => (
+                                <label
+                                    key={option.value}
+                                    className="flex items-center gap-3 text-sm"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="result_mode"
+                                        value={option.value}
+                                        checked={resultMode === option.value}
+                                        onChange={() =>
+                                            setResultMode(option.value)
+                                        }
+                                    />
+                                    {option.label}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
 
-                                <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                        {course.questions_count} soru
-                                    </span>
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                        {course.exam_sessions_count} oturum
-                                    </span>
-                                </div>
-
-                                <div className="mt-6 flex flex-col gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => start(course)}
-                                        disabled={!hasQuestions || isBusy}
-                                        className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {!hasQuestions
-                                            ? 'Sorular hazırlanıyor'
-                                            : isBusy
-                                              ? 'Hazırlanıyor...'
-                                              : 'Sınavı Başlat'}
-                                    </button>
-                                </div>
-                            </article>
-                        );
-                    })}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setStep('courses')}
+                            className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+                        >
+                            ← Geri
+                        </button>
+                        <button
+                            type="button"
+                            onClick={submit}
+                            disabled={
+                                submitting ||
+                                missingInPool.length === selectedCourses.length
+                            }
+                            className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {submitting
+                                ? 'Hazırlanıyor...'
+                                : 'Sınav kitapçığını oluştur'}
+                        </button>
+                    </div>
                 </div>
             )}
         </>
     );
 }
 
-CoursesIndex.layout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
+CourseSelection.layout = (page: React.ReactNode) => (
+    <AppLayout>{page}</AppLayout>
+);
 
-export default CoursesIndex;
+export default CourseSelection;

@@ -34,19 +34,43 @@ final class QuestionWriter implements Agent, HasStructuredOutput
         bölümüne dayanarak, gerçek AÖL sınav kitapçıklarındaki kalıplara uygun,
         Türkçe çoktan seçmeli sorular hazırlarsın.
 
+        Soru yapısı:
+        - `passage`: Gerekirse soru kökünden önce gelen giriş metni (kitaptan
+          kısa bir parça, bir tanım, bir örnek olay ya da "I. … II. … III. …"
+          biçiminde öncüller). Gerekmiyorsa boş metin bırak.
+        - `text`: Soru kökü; kısa ve net, soru işaretiyle biter.
+        - `options`: Dört şık; yalnızca biri doğru. `correct_index` doğru şıkkın
+          0 tabanlı sırasıdır.
+        - `page`: Sorunun dayandığı bilginin bulunduğu sayfa; metindeki
+          [Sayfa N] işaretinden al. Bilmiyorsan 0 yaz.
+
+        Gerçek kitapçıklardaki dağılıma uy (her 10 soru için yaklaşık):
+        - 3–4 soru bir giriş metnine dayansın ("Bu parçadan aşağıdakilerden
+          hangisine ulaşılabilir?", "Bu metinde sözü edilen kavram
+          aşağıdakilerden hangisidir?", "Bu bilgiler aşağıdakilerden
+          hangisiyle ilgilidir?").
+        - 1–2 soru olumsuz kök taşısın ("… aşağıdakilerden hangisi
+          değildir?", "… hangisi yanlıştır?", "… hangisine ulaşılamaz?",
+          "… hangisi dışta kalır?").
+        - 1 soru öncüllü olsun ("Yukarıdakilerden hangileri doğrudur?";
+          şıklar "Yalnız I", "I ve II", "II ve III", "I, II ve III" gibi).
+        - Kalanlar kavram, kişi, olay, tarih ve neden-sonuç bilgisini doğrudan
+          sorsun ("Aşağıdakilerden hangisi … ile ilgilidir?", "… hakkında
+          aşağıdakilerden hangisi doğrudur?").
+
         Kurallar:
-        - Her sorunun dört şıkkı olur ve yalnızca biri doğrudur.
         - Bilgiyi yalnızca verilen metinden al; metinde olmayan bilgiyi uydurma.
-        - Şu kalıpları kullan: "Bu metinde anlatılan kavram aşağıdakilerden
-          hangisidir?", "Aşağıdakilerden hangisi … ile ilgilidir?", "…
-          hakkında aşağıdakilerden hangisi doğrudur?", "Bu parçadan
-          aşağıdakilerden hangisine ulaşılamaz?", tarih/kavram/kişi soruları.
         - Çeldiriciler doğru yanıtla aynı türden ve makul olsun; gerçekte var
           olan kavram, kişi, yer ve eserleri kullan, uydurma isim yazma.
         - Özel adların Türkiye Türkçesindeki yazımını kullan (Karlofça, Lozan,
           Viyana; Karlowitz, Lausanne, Wien değil).
         - Dört şık birbirinden farklı olsun; "hepsi" veya "hiçbiri" kullanma.
-        - Soru kökü kısa ve net olsun.
+        - Soru kökü AÖL kalıbıyla bitsin: "… aşağıdakilerden hangisidir?",
+          "… hangisiyle ilgilidir?", "… hangisine ulaşılabilir?". "Nedir?",
+          "nelerdir?" gibi açık uçlu kök kullanma.
+        - Giriş metni yoksa kökte "metne göre" diye kitaba gönderme yapma; soru
+          kitapçıkta tek başına okunacak. Giriş metni varsa "Bu metne/parçaya
+          göre" denebilir.
         TXT;
     }
 
@@ -58,9 +82,11 @@ final class QuestionWriter implements Agent, HasStructuredOutput
         return [
             'questions' => $schema->array()
                 ->items($schema->object(fn (JsonSchema $schema): array => [
+                    'passage' => $schema->string()->required(),
                     'text' => $schema->string()->required(),
                     'options' => $schema->array()->items($schema->string())->required(),
                     'correct_index' => $schema->integer()->min(0)->max(3)->required(),
+                    'page' => $schema->integer()->min(0)->required(),
                 ]))
                 ->required(),
         ];
@@ -73,7 +99,6 @@ final class QuestionWriter implements Agent, HasStructuredOutput
     {
         return <<<PROMPT
         Aşağıdaki ders kitabı bölümünden {$this->count} adet soru üret.
-        `options` dört şık içermeli, `correct_index` doğru şıkkın 0 tabanlı sırası olmalı.
 
         METİN:
         """

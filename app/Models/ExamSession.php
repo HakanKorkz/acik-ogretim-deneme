@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\CourseLevel;
 use App\Enums\ExamStatus;
+use App\Enums\QuestionPool;
+use App\Enums\ResultMode;
+use Carbon\CarbonImmutable;
 use Database\Factories\ExamSessionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -11,25 +15,35 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property string $ulid
- * @property int $course_id
+ * @property int|null $course_id İlk ders (geriye uyumluluk için).
+ * @property CourseLevel $level
+ * @property string|null $visitor_id
+ * @property QuestionPool $question_pool
+ * @property ResultMode $result_mode
+ * @property int|null $section_minutes
  * @property int|null $user_id
  * @property int $total_questions
  * @property int|null $correct_count
  * @property ExamStatus $status
- * @property Carbon|null $started_at
- * @property Carbon|null $completed_at
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read Course $course
+ * @property CarbonImmutable|null $started_at
+ * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $created_at
+ * @property CarbonImmutable|null $updated_at
+ * @property-read Course|null $course
+ * @property-read Collection<int, ExamSection> $sections
  * @property-read Collection<int, ExamAnswer> $answers
  */
 #[Fillable([
     'course_id',
+    'level',
+    'visitor_id',
+    'question_pool',
+    'result_mode',
+    'section_minutes',
     'user_id',
     'total_questions',
     'correct_count',
@@ -71,6 +85,24 @@ class ExamSession extends Model
     }
 
     /**
+     * Sınavın ders bölümleri, çözülme sırasıyla.
+     *
+     * @return HasMany<ExamSection, $this>
+     */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(ExamSection::class)->orderBy('position');
+    }
+
+    /**
+     * Sıradaki (henüz tamamlanmamış ilk) bölüm.
+     */
+    public function currentSection(): ?ExamSection
+    {
+        return $this->sections->first(fn (ExamSection $section): bool => ! $section->isCompleted());
+    }
+
+    /**
      * Oturumdaki cevaplar.
      *
      * @return HasMany<ExamAnswer, $this>
@@ -109,6 +141,9 @@ class ExamSession extends Model
     {
         return [
             'status' => ExamStatus::class,
+            'level' => CourseLevel::class,
+            'question_pool' => QuestionPool::class,
+            'result_mode' => ResultMode::class,
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

@@ -16,14 +16,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Bir Sınavdaki Soru Sayısı
+    | Sınav Kuralları
     |--------------------------------------------------------------------------
     |
-    | Her sınav oturumunda bankadan rastgele seçilecek soru sayısı.
+    | Gerçek AÖL sınavı: her derste 10 soru, geçme notu 100 üzerinden 50.
+    | Burada dersler sırayla, her biri kendi süresiyle çözülür; süre bir
+    | dersin bölümüne aittir ve dersler arasında işlemez.
     |
     */
 
-    'questions_per_exam' => (int) env('EXAM_QUESTIONS_PER_EXAM', 20),
+    'questions_per_exam' => (int) env('EXAM_QUESTIONS_PER_EXAM', 10),
+
+    'max_courses_per_exam' => 10,
+
+    // Bir dersin bölümü için süre (dakika).
+    'section_minutes' => (int) env('EXAM_SECTION_MINUTES', 15),
+
+    'pass_score' => 50,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kendini Büyüten Soru Bankası
+    |--------------------------------------------------------------------------
+    |
+    | Bir ziyaretçinin bir derste henüz görmediği soru sayısı bu eşiğin altına
+    | inince o derse arka planda yeni sorular eklenir (eskiler silinmez).
+    | Banka `bank_max_per_course` sınırına ulaşınca büyüme durur.
+    |
+    */
+
+    'bank_topup_unseen_threshold' => (int) env('EXAM_BANK_TOPUP_THRESHOLD', 20),
+
+    'bank_topup_batch' => (int) env('EXAM_BANK_TOPUP_BATCH', 20),
+
+    'bank_max_per_course' => (int) env('EXAM_BANK_MAX_PER_COURSE', 400),
 
     /*
     |--------------------------------------------------------------------------

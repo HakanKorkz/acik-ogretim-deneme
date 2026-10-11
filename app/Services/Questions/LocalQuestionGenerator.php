@@ -20,6 +20,11 @@ class LocalQuestionGenerator implements QuestionGenerator
     /** @var array<int, string> */
     private const SELECTION_LABELS = ['A', 'B', 'C', 'D'];
 
+    /**
+     * Boşluk doldurma sorularının kökü (gerçek kitapçıktaki kalıp).
+     */
+    private const CLOZE_STEM = 'Bu cümlede boş bırakılan yere aşağıdakilerden hangisi getirilmelidir?';
+
     /** @var array<int, string> */
     private const CONCEPT_STEMS = [
         'Aşağıdaki metinde anlatılan kavram aşağıdakilerden hangisidir?',
@@ -152,7 +157,7 @@ class LocalQuestionGenerator implements QuestionGenerator
         /** @var array<string, true> $usedAnswers */
         $usedAnswers = [];
 
-        /** @var array<int, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}> $questions */
+        /** @var array<int, array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}> $questions */
         $questions = [];
 
         // 1) Tanım tabanlı sorular — "kavramdan tanım" ve "metinden kavram"
@@ -182,14 +187,16 @@ class LocalQuestionGenerator implements QuestionGenerator
             );
         }
 
-        return array_map(
+        return array_values(array_map(
             static fn (array $question): array => [
                 'text' => $question['text'],
+                'passage' => $question['passage'],
                 'correct_option' => $question['correct_option'],
                 'options' => $question['options'],
+                'source' => 'local',
             ],
             $questions,
-        );
+        ));
     }
 
     /**
@@ -199,7 +206,7 @@ class LocalQuestionGenerator implements QuestionGenerator
      * @param  array{subject: string, predicate: string}  $definition
      * @param  array<int, array{subject: string, predicate: string}>  $definitions
      * @param  array<string, true>  $usedAnswers
-     * @return array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
+     * @return array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
      */
     private function makeConceptFromTextQuestion(array $definition, array $definitions, array $usedAnswers): ?array
     {
@@ -220,7 +227,8 @@ class LocalQuestionGenerator implements QuestionGenerator
         $stem = $this->randomFrom(self::CONCEPT_STEMS);
 
         return $this->assembleQuestion(
-            prompt: $stem."\n\n".$body,
+            prompt: $stem,
+            passage: $body,
             answerText: $definition['subject'],
             distractorTexts: $distractors,
             answerKey: mb_strtolower($definition['subject'], 'UTF-8'),
@@ -234,7 +242,7 @@ class LocalQuestionGenerator implements QuestionGenerator
      * @param  array{subject: string, predicate: string}  $definition
      * @param  array<int, array{subject: string, predicate: string}>  $definitions
      * @param  array<string, true>  $usedAnswers
-     * @return array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
+     * @return array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
      */
     private function makeDefinitionQuestion(array $definition, array $definitions, array $usedAnswers): ?array
     {
@@ -586,7 +594,7 @@ class LocalQuestionGenerator implements QuestionGenerator
      *
      * @param  array<int, string>  $sentences
      * @param  array<string, true>  $usedAnswers
-     * @return array<int, array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}>
+     * @return array<int, array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}>
      */
     private function buildClozeQuestions(array $sentences, int $needed, array $usedAnswers): array
     {
@@ -622,7 +630,7 @@ class LocalQuestionGenerator implements QuestionGenerator
     /**
      * @param  array{proper: array<int, string>, number: array<int, string>, noun: array<int, string>, proper_cases: array<string, array<string, true>>}  $pools
      * @param  array<string, true>  $usedAnswers
-     * @return array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
+     * @return array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}|null
      */
     private function buildClozeFromSentence(string $sentence, array $pools, array $usedAnswers, bool $allowNouns): ?array
     {
@@ -667,7 +675,8 @@ class LocalQuestionGenerator implements QuestionGenerator
             }
 
             return $this->assembleQuestion(
-                prompt: $prompt,
+                prompt: self::CLOZE_STEM,
+                passage: $prompt,
                 answerText: $this->presentToken($token, $category),
                 distractorTexts: $distractors,
                 answerKey: $key,
@@ -858,13 +867,14 @@ class LocalQuestionGenerator implements QuestionGenerator
      * Soruyu şıklarıyla birlikte kurar.
      *
      * @param  array<int, string>  $distractorTexts
-     * @return array{text: string, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}
+     * @return array{text: string, passage: string|null, correct_option: string, options: array<int, array{label: string, text: string, is_correct: bool}>, answer_key: string}
      */
     private function assembleQuestion(
         string $prompt,
         string $answerText,
         array $distractorTexts,
         string $answerKey,
+        ?string $passage = null,
     ): array {
         $options = [
             ['text' => $answerText, 'is_correct' => true],
@@ -910,6 +920,7 @@ class LocalQuestionGenerator implements QuestionGenerator
 
         return [
             'text' => $prompt,
+            'passage' => $passage,
             'correct_option' => $correctOption,
             'options' => $prepared,
             'answer_key' => $answerKey,

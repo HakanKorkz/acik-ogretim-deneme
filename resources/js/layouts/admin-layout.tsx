@@ -1,11 +1,10 @@
 import FlashMessage from '@/components/flash-message';
 import { cn } from '@/lib/utils';
-import { logout } from '@/routes';
+import { home, logout } from '@/routes';
 import { dashboard } from '@/routes/admin';
 import { index as coursesIndex } from '@/routes/admin/courses';
 import { edit as profileEdit } from '@/routes/admin/profile';
 import { edit as aiSettingsEdit } from '@/routes/admin/settings/ai';
-import { index as publicCoursesIndex } from '@/routes/courses';
 import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
@@ -61,7 +60,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         </Link>
                     ))}
                     <Link
-                        href={publicCoursesIndex.url()}
+                        href={home.url()}
                         className="rounded-lg px-3 py-2 whitespace-nowrap text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                     >
                         Siteyi görüntüle ↗

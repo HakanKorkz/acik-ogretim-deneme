@@ -37,8 +37,13 @@ class GenerateCourseQuestions implements ShouldBeUnique, ShouldQueue
      */
     public int $uniqueFor = 960;
 
+    /**
+     * @param  bool  $append  true: mevcut bankaya yeni sorular ekler (sınavlar
+     *                        bağımsız kalsın diye); false: bankayı yeniden üretir.
+     */
     public function __construct(
         public Course $course,
+        public bool $append = false,
     ) {}
 
     /**
@@ -56,9 +61,11 @@ class GenerateCourseQuestions implements ShouldBeUnique, ShouldQueue
     {
         $this->course->markQuestionGeneration(QuestionGenerationStatus::Running);
 
-        $created = $importer->import($this->course, (int) config('exam.questions_per_course'));
+        $created = $this->append
+            ? $importer->append($this->course, (int) config('exam.bank_topup_batch'))
+            : $importer->import($this->course, (int) config('exam.questions_per_course'));
 
-        if ($created === 0) {
+        if ($created === 0 && ! $this->append) {
             throw new RuntimeException("PDF içeriğinden uygun soru üretilemedi: {$this->course->name}");
         }
 

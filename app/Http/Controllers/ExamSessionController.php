@@ -2,225 +2,310 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ExamStatus;
+use App\Enums\CourseLevel;
+use App\Enums\QuestionPool;
+use App\Enums\QuestionSource;
+use App\Enums\ResultMode;
+use App\Http\Middleware\EnsureVisitorId;
+use App\Http\Requests\StartExamRequest;
 use App\Models\Course;
 use App\Models\ExamAnswer;
+use App\Models\ExamSection;
 use App\Models\ExamSession;
-use App\Models\Option;
-use App\Services\Questions\QuestionBankImporter;
+use App\Services\Exams\ExamBuilder;
+use App\Services\Exams\ExamRunner;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
+/**
+ * Sınav akışı: dersler sırayla çözülür. Her dersin bölümü "Başlayınız" ile
+ * başlar, kendi süresi işler ve teslim edilince değerlendirilir. Seçime göre
+ * her ders bitince ya da en sonda toplu sonuç gösterilir.
+ */
 class ExamSessionController extends Controller
 {
-    /**
-     * Tarayıcı oturumunun sahip olduğu sınav ULID'lerinin tutulduğu anahtar.
-     */
-    private const OWNED_SESSIONS_KEY = 'owned_exam_sessions';
+    public function __construct(
+        private readonly ExamRunner $runner,
+    ) {}
 
     /**
-     * Seçilen ders için yeni bir sınav oturumu başlatır.
+     * Seçilen derslerle yeni bir sınav kurar.
      */
-    public function store(Request $request, Course $course, QuestionBankImporter $importer): RedirectResponse
+    public function store(StartExamRequest $request, ExamBuilder $builder): RedirectResponse
     {
-        $questions = $importer->randomQuestionsFor($course, (int) config('exam.questions_per_exam'));
+        /** @var list<string> $slugs */
+        $slugs = $request->validated('courses');
 
-        if ($questions->isEmpty()) {
-            return back()->with('error', 'Bu derste soru bulunmuyor. Önce soruları üretin.');
+        $courses = Course::query()->whereIn('slug', $slugs)->get()
+            ->sortBy(fn (Course $course): int|false => array_search($course->slug, $slugs, true))
+            ->values();
+
+        try {
+            $examSession = $builder->build(
+                CourseLevel::from($request->validated('level')),
+                $courses,
+                QuestionPool::from($request->validated('pool')),
+                EnsureVisitorId::of($request),
+                ResultMode::from($request->validated('result_mode')),
+            );
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
-        $examSession = DB::transaction(function () use ($course, $questions): ExamSession {
-            $examSession = ExamSession::create([
-                'course_id' => $course->id,
-                'user_id' => auth()->id(),
-                'total_questions' => $questions->count(),
-                'status' => ExamStatus::InProgress,
-                'started_at' => now(),
-            ]);
-
-            foreach ($questions->values() as $index => $question) {
-                $examSession->answers()->create([
-                    'question_id' => $question->id,
-                    'position' => $index + 1,
-                ]);
-            }
-
-            return $examSession;
-        });
-
-        $request->session()->push(self::OWNED_SESSIONS_KEY, $examSession->ulid);
-
-        return redirect()->route('exams.show', $examSession);
+        return to_route('exams.show', $examSession);
     }
 
     /**
-     * Sınav ekranını gösterir. Doğru cevaplar istemciye gönderilmez.
+     * Sıradaki dersin talimat ekranı ya da sınav ekranı.
      */
     public function show(Request $request, ExamSession $examSession): Response|RedirectResponse
     {
         $this->ensureOwnership($request, $examSession);
+        $this->runner->closeExpiredSections($examSession->load('sections.course'));
 
-        if ($examSession->isCompleted()) {
-            return redirect()->route('exams.result', $examSession);
+        $section = $examSession->refresh()->load('sections.course')->currentSection();
+
+        if ($examSession->isCompleted() || $section === null) {
+            return to_route('exams.result', $examSession);
         }
 
-        $examSession->load(['course', 'answers.question.options']);
+        if (! $section->hasStarted()) {
+            return Inertia::render('exams/instructions', [
+                'exam' => $this->examSummary($examSession),
+                'section' => $this->sectionSummary($section),
+                'isFirstSection' => $section->position === 1,
+            ]);
+        }
+
+        $section->load('answers.question.options');
 
         return Inertia::render('exams/show', [
-            'session' => [
-                'id' => $examSession->ulid,
-                'course' => $examSession->course->name,
-                'course_slug' => $examSession->course->slug,
-                'total_questions' => $examSession->total_questions,
-                'started_at' => $examSession->started_at?->toIso8601String(),
+            'exam' => $this->examSummary($examSession),
+            'section' => [
+                ...$this->sectionSummary($section),
+                'remainingSeconds' => $section->remainingSeconds(),
             ],
-            'questions' => $examSession->answers->values()->map(
-                static fn (ExamAnswer $answer): array => [
-                    'id' => $answer->question->id,
-                    'position' => $answer->position,
-                    'text' => $answer->question->text,
-                    'options' => $answer->question->options->values()->map(
-                        static fn (Option $option): array => [
-                            'id' => $option->id,
-                            'label' => $option->label,
-                            'text' => $option->text,
-                        ],
-                    ),
-                ],
-            ),
+            'questions' => $section->answers->map(static fn (ExamAnswer $answer): array => [
+                'id' => $answer->question->id,
+                'number' => $answer->number ?? $answer->position,
+                'passage' => $answer->question->passage,
+                'text' => $answer->question->text,
+                'options' => array_map(
+                    static fn (array $option): array => ['id' => $option['id'], 'label' => $option['label'], 'text' => $option['text']],
+                    $answer->displayedOptions(),
+                ),
+                'selectedOptionId' => $answer->option_id,
+            ])->values(),
         ]);
     }
 
     /**
-     * Kullanıcının cevaplarını kaydeder, skoru hesaplar ve sonuca yönlendirir.
+     * "Başlayınız": sıradaki dersin süresini başlatır.
      */
-    public function submit(Request $request, ExamSession $examSession): RedirectResponse
+    public function start(Request $request, ExamSession $examSession): RedirectResponse
     {
         $this->ensureOwnership($request, $examSession);
 
-        if ($examSession->isCompleted()) {
-            return redirect()->route('exams.result', $examSession);
+        $section = $examSession->load('sections')->currentSection();
+
+        if ($section !== null) {
+            $this->runner->start($section);
         }
 
-        /** @var array<int, int|null> $submitted */
-        $submitted = $request->validate([
-            'answers' => ['array'],
-            'answers.*' => ['nullable', 'integer', 'exists:options,id'],
-        ])['answers'] ?? [];
-
-        $examSession->load('answers');
-
-        $questionIds = $examSession->answers->pluck('question_id');
-
-        /** @var Collection<int, int> $optionToQuestion */
-        $optionToQuestion = Option::query()
-            ->whereIn('question_id', $questionIds)
-            ->pluck('question_id', 'id');
-
-        /** @var Collection<int, int> $correctOptionForQuestion */
-        $correctOptionForQuestion = Option::query()
-            ->whereIn('question_id', $questionIds)
-            ->where('is_correct', true)
-            ->pluck('id', 'question_id');
-
-        DB::transaction(function () use ($examSession, $submitted, $optionToQuestion, $correctOptionForQuestion): void {
-            $correctCount = 0;
-
-            foreach ($examSession->answers as $answer) {
-                $questionId = $answer->question_id;
-                $optionId = isset($submitted[$questionId]) ? (int) $submitted[$questionId] : null;
-
-                if ($optionId !== null && (int) $optionToQuestion->get($optionId) !== $questionId) {
-                    $optionId = null;
-                }
-
-                $isCorrect = $optionId !== null
-                    && (int) $correctOptionForQuestion->get($questionId) === $optionId;
-
-                $answer->update([
-                    'option_id' => $optionId,
-                    'is_correct' => $isCorrect,
-                ]);
-
-                if ($isCorrect) {
-                    $correctCount++;
-                }
-            }
-
-            $examSession->update([
-                'status' => ExamStatus::Completed,
-                'correct_count' => $correctCount,
-                'completed_at' => now(),
-            ]);
-        });
-
-        return redirect()->route('exams.result', $examSession);
+        return to_route('exams.show', $examSession);
     }
 
     /**
-     * Sınav sonucunu ve soru bazlı değerlendirmeyi gösterir.
+     * Tek bir cevabı anında kaydeder.
+     */
+    public function answer(Request $request, ExamSession $examSession): JsonResponse
+    {
+        $this->ensureOwnership($request, $examSession);
+
+        $validated = $request->validate([
+            'question_id' => ['required', 'integer'],
+            'option_id' => ['nullable', 'integer'],
+        ]);
+
+        $section = $examSession->load('sections.examSession')->currentSection();
+        $saved = $section !== null && $this->runner->saveAnswer(
+            $section,
+            (int) $validated['question_id'],
+            isset($validated['option_id']) ? (int) $validated['option_id'] : null,
+        );
+
+        return response()->json(['saved' => $saved], $saved ? 200 : 409);
+    }
+
+    /**
+     * Sıradaki dersi teslim eder.
+     */
+    public function finish(Request $request, ExamSession $examSession): RedirectResponse
+    {
+        $this->ensureOwnership($request, $examSession);
+
+        /** @var array<int|string, int|string|null> $submitted */
+        $submitted = $request->validate([
+            'answers' => ['array'],
+            'answers.*' => ['nullable', 'integer'],
+        ])['answers'] ?? [];
+
+        $section = $examSession->load('sections.examSession')->currentSection();
+
+        if ($section === null || ! $section->hasStarted()) {
+            return to_route('exams.show', $examSession);
+        }
+
+        $this->runner->finishSection($section, $submitted);
+
+        if ($examSession->refresh()->isCompleted()) {
+            return to_route('exams.result', $examSession);
+        }
+
+        if ($examSession->result_mode === ResultMode::PerCourse) {
+            return to_route('exams.sections.result', [$examSession, $section->position]);
+        }
+
+        return to_route('exams.show', $examSession);
+    }
+
+    /**
+     * Tek bir dersin sonucu ("her ders bitince sonuç" seçeneği).
+     */
+    public function sectionResult(ExamSession $examSession, int $position): Response
+    {
+        $section = $examSession->sections()->where('position', $position)->firstOrFail();
+
+        abort_unless($section->isCompleted(), 404);
+
+        $section->load(['course', 'answers.question.options', 'answers.option']);
+
+        return Inertia::render('exams/section-result', [
+            'exam' => $this->examSummary($examSession->load('sections.course')),
+            'result' => $this->sectionResultData($section),
+            'hasNextSection' => ! $examSession->isCompleted(),
+        ]);
+    }
+
+    /**
+     * Sınavın toplu sonucu. Tahmin edilemeyen ULID bağlantısıyla paylaşılabilir.
      */
     public function result(ExamSession $examSession): Response|RedirectResponse
     {
         if (! $examSession->isCompleted()) {
-            return redirect()->route('exams.show', $examSession);
+            return to_route('exams.show', $examSession);
         }
 
-        $examSession->load(['course', 'answers.option', 'answers.question.options']);
+        $examSession->load(['sections.course', 'sections.answers.question.options', 'sections.answers.option']);
 
-        $answers = $examSession->answers->values();
-        $correctCount = $examSession->correct_count ?? 0;
-        $blankCount = $answers->filter(static fn (ExamAnswer $answer): bool => ! $answer->isAnswered())->count();
+        $results = $examSession->sections
+            ->map(fn (ExamSection $section): array => $this->sectionResultData($section))
+            ->values();
 
         return Inertia::render('exams/result', [
-            'session' => [
-                'id' => $examSession->ulid,
-                'course' => $examSession->course->name,
-                'course_slug' => $examSession->course->slug,
-                'total_questions' => $examSession->total_questions,
-                'correct_count' => $correctCount,
-                'wrong_count' => $examSession->total_questions - $correctCount - $blankCount,
-                'blank_count' => $blankCount,
-                'score' => $examSession->scorePercentage(),
-                'completed_at' => $examSession->completed_at?->toIso8601String(),
+            'exam' => $this->examSummary($examSession),
+            'results' => $results,
+            'totals' => [
+                'courses' => $results->count(),
+                'passed' => $results->where('passed', true)->count(),
+                'correct' => $results->sum('correct'),
+                'questions' => $results->sum('total'),
             ],
-            'review' => $answers->map(function (ExamAnswer $answer): array {
-                $correctOption = $answer->question->options->firstWhere('is_correct', true);
-
-                return [
-                    'position' => $answer->position,
-                    'question' => $answer->question->text,
-                    'is_correct' => $answer->is_correct,
-                    'selected_label' => $answer->option?->label,
-                    'selected_text' => $answer->option?->text,
-                    'correct_label' => $correctOption?->label,
-                    'correct_text' => $correctOption?->text,
-                    'options' => $answer->question->options->values()->map(
-                        static fn (Option $option): array => [
-                            'label' => $option->label,
-                            'text' => $option->text,
-                            'is_correct' => $option->is_correct,
-                        ],
-                    ),
-                ];
-            }),
         ]);
     }
 
     /**
-     * Devam eden bir sınavı yalnızca onu başlatan tarayıcı oturumu görebilir
-     * ve gönderebilir. Sonuç sayfası ise tahmin edilemeyen ULID bağlantısıyla
-     * paylaşılabilir.
+     * @return array<string, mixed>
+     */
+    private function examSummary(ExamSession $examSession): array
+    {
+        return [
+            'id' => $examSession->ulid,
+            'level' => $examSession->level->value,
+            'levelLabel' => $examSession->level->label(),
+            'pool' => $examSession->question_pool->label(),
+            'resultMode' => $examSession->result_mode->value,
+            'sectionMinutes' => $examSession->section_minutes,
+            'passScore' => (int) config('exam.pass_score'),
+            'sections' => $examSession->sections->map(static fn (ExamSection $section): array => [
+                'position' => $section->position,
+                'course' => $section->course->name,
+                'isCompleted' => $section->isCompleted(),
+            ])->values(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sectionSummary(ExamSection $section): array
+    {
+        return [
+            'position' => $section->position,
+            'course' => $section->course->name,
+            'subject' => $section->course->subject,
+            'totalQuestions' => $section->total_questions,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sectionResultData(ExamSection $section): array
+    {
+        $answers = $section->answers;
+        $blank = $answers->filter(static fn (ExamAnswer $answer): bool => ! $answer->isAnswered())->count();
+        $correct = $section->correct_count ?? 0;
+        $course = $section->course;
+
+        return [
+            'position' => $section->position,
+            'course' => $course->name,
+            'subject' => $course->subject,
+            'total' => $section->total_questions,
+            'correct' => $correct,
+            'wrong' => $section->total_questions - $correct - $blank,
+            'blank' => $blank,
+            'score' => $section->score(),
+            'passed' => $section->isPassed(),
+            'review' => $answers->map(static function (ExamAnswer $answer) use ($course): array {
+                $question = $answer->question;
+                $options = $answer->displayedOptions();
+                $correctOption = collect($options)->firstWhere('is_correct', true);
+                $selected = collect($options)->firstWhere('id', $answer->option_id);
+
+                return [
+                    'number' => $answer->number ?? $answer->position,
+                    'passage' => $question->passage,
+                    'question' => $question->text,
+                    'isCorrect' => $answer->is_correct,
+                    'selectedLabel' => $selected['label'] ?? null,
+                    'correctLabel' => $correctOption['label'] ?? null,
+                    'options' => array_map(
+                        static fn (array $option): array => ['label' => $option['label'], 'text' => $option['text'], 'isCorrect' => $option['is_correct']],
+                        $options,
+                    ),
+                    'source' => $question->source->label(),
+                    'isPastExam' => $question->source === QuestionSource::PastExam,
+                    'sourcePage' => $question->source_page,
+                    'bookUrl' => $question->source_page !== null && filled($course->source_url)
+                        ? $course->source_url.'#page='.($question->source_page + ($course->page_offset ?? 0))
+                        : null,
+                ];
+            })->values(),
+        ];
+    }
+
+    /**
+     * Devam eden sınavı yalnızca onu başlatan tarayıcı (ziyaretçi kimliği)
+     * görebilir ve çözebilir. Sonuç sayfaları ULID bağlantısıyla paylaşılabilir.
      */
     private function ensureOwnership(Request $request, ExamSession $examSession): void
     {
-        /** @var array<int, string> $ownedSessions */
-        $ownedSessions = $request->session()->get(self::OWNED_SESSIONS_KEY, []);
-
-        abort_unless(in_array($examSession->ulid, $ownedSessions, true), 404);
+        abort_unless($examSession->visitor_id === EnsureVisitorId::of($request), 404);
     }
 }

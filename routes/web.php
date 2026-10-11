@@ -3,23 +3,34 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ExamSessionController;
+use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [CourseController::class, 'index'])->name('courses.index');
+Route::get('/', HomeController::class)->name('home');
 
-Route::post('/courses/{course}/exams', [ExamSessionController::class, 'store'])
+Route::get('/sinav/{level}', [CourseController::class, 'index'])->name('courses.index');
+
+Route::post('/exams', [ExamSessionController::class, 'store'])
     ->middleware('throttle:exam-start')
     ->name('exams.store');
 
-Route::get('/exams/{examSession}', [ExamSessionController::class, 'show'])
-    ->name('exams.show');
+Route::get('/exams/{examSession}', [ExamSessionController::class, 'show'])->name('exams.show');
 
-Route::post('/exams/{examSession}', [ExamSessionController::class, 'submit'])
+Route::post('/exams/{examSession}/start', [ExamSessionController::class, 'start'])->name('exams.start');
+
+Route::put('/exams/{examSession}/answer', [ExamSessionController::class, 'answer'])
+    ->middleware('throttle:exam-answer')
+    ->name('exams.answer');
+
+Route::post('/exams/{examSession}/finish', [ExamSessionController::class, 'finish'])
     ->middleware('throttle:exam-submit')
-    ->name('exams.submit');
+    ->name('exams.finish');
 
-Route::get('/exams/{examSession}/result', [ExamSessionController::class, 'result'])
-    ->name('exams.result');
+Route::get('/exams/{examSession}/sections/{position}/result', [ExamSessionController::class, 'sectionResult'])
+    ->whereNumber('position')
+    ->name('exams.sections.result');
+
+Route::get('/exams/{examSession}/result', [ExamSessionController::class, 'result'])->name('exams.result');
 
 /*
  * Yönetim paneli. Giriş Fortify ile yapılır (/login); kayıt kapalıdır,

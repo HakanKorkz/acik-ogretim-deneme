@@ -96,12 +96,12 @@ test('ön yüz yalnızca seçilen kademedeki aktif dersleri listeler', function 
     Course::factory()->inactive()->create(['name' => 'Pasif Lise']);
     Course::factory()->create(['name' => 'Aktif Ortaokul', 'level' => CourseLevel::Ortaokul]);
 
-    $this->get(route('courses.index'))
+    $this->get(route('courses.index', 'lise'))
         ->assertInertia(fn ($page) => $page
-            ->where('level', 'lise')
+            ->where('level.value', 'lise')
             ->has('courses', 1)
             ->where('courses.0.name', 'Aktif Lise'));
 
-    $this->get(route('courses.index', ['level' => 'ortaokul']))
+    $this->get(route('courses.index', 'ortaokul'))
         ->assertInertia(fn ($page) => $page->has('courses', 1)->where('courses.0.name', 'Aktif Ortaokul'));
 });

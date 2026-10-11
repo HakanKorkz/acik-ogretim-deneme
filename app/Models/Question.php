@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\QuestionSource;
 use Database\Factories\QuestionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -17,15 +18,18 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $course_id
- * @property string $text
+ * @property string|null $passage Giriş metni: parça, ayet, öncüller.
+ * @property string $text Soru kökü.
  * @property string $correct_option
+ * @property QuestionSource $source
+ * @property int|null $source_page Kitabın basılı sayfa numarası.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Course $course
  * @property-read Collection<int, Option> $options
  */
-#[Fillable(['course_id', 'text', 'correct_option'])]
+#[Fillable(['course_id', 'passage', 'text', 'correct_option', 'source', 'source_page'])]
 class Question extends Model
 {
     /** @use HasFactory<QuestionFactory> */
@@ -59,6 +63,18 @@ class Question extends Model
     public function examAnswers(): HasMany
     {
         return $this->hasMany(ExamAnswer::class);
+    }
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'source' => QuestionSource::class,
+        ];
     }
 
     /**

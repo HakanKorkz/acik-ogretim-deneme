@@ -1,7 +1,13 @@
-import { submit as submitExam } from '@/actions/App/Http/Controllers/ExamSessionController';
+import QuestionStem from '@/components/exam/question-stem';
+import SectionProgress, {
+    type ExamSummary,
+} from '@/components/exam/section-progress';
 import AppLayout from '@/layouts/app-layout';
+import { formatDuration, hasShortOptions } from '@/lib/exam';
+import { cn } from '@/lib/utils';
+import { answer as saveAnswerRoute, finish } from '@/routes/exams';
 import { Head, router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface QuestionOption {
     id: number;
@@ -11,240 +17,305 @@ interface QuestionOption {
 
 interface Question {
     id: number;
-    position: number;
+    number: number;
+    passage: string | null;
     text: string;
     options: QuestionOption[];
-}
-
-interface Session {
-    id: string;
-    course: string;
-    course_slug: string;
-    total_questions: number;
-    started_at: string | null;
+    selectedOptionId: number | null;
 }
 
 interface Props {
-    session: Session;
+    exam: ExamSummary;
+    section: {
+        position: number;
+        course: string;
+        subject: string | null;
+        totalQuestions: number;
+        remainingSeconds: number;
+    };
     questions: Question[];
 }
 
-function formatTime(totalSeconds: number): string {
-    const minutes = Math.floor(totalSeconds / 60)
-        .toString()
-        .padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
-    return `${minutes}:${seconds}`;
+function xsrfToken(): string {
+    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+
+    return match ? decodeURIComponent(match[1]) : '';
 }
 
-function ExamShow({ session, questions }: Props) {
-    const [answers, setAnswers] = useState<Record<number, number>>({});
-    const [current, setCurrent] = useState(0);
+function ExamShow({ exam, section, questions }: Props) {
+    const [answers, setAnswers] = useState<Record<number, number | null>>(() =>
+        Object.fromEntries(
+            questions.map((question) => [
+                question.id,
+                question.selectedOptionId,
+            ]),
+        ),
+    );
+    const [remaining, setRemaining] = useState(section.remainingSeconds);
+    const [saveState, setSaveState] = useState<SaveState>('idle');
     const [submitting, setSubmitting] = useState(false);
-    const [elapsed, setElapsed] = useState(0);
+    const submittedRef = useRef(false);
+
+    const answeredCount = Object.values(answers).filter(
+        (value) => value !== null,
+    ).length;
+
+    const submit = useCallback(() => {
+        if (submittedRef.current) {
+            return;
+        }
+
+        submittedRef.current = true;
+        router.post(
+            finish.url(exam.id),
+            { answers },
+            {
+                onStart: () => setSubmitting(true),
+                onFinish: () => {
+                    setSubmitting(false);
+                    submittedRef.current = false;
+                },
+            },
+        );
+    }, [answers, exam.id]);
 
     useEffect(() => {
-        const timer = window.setInterval(() => {
-            setElapsed((value) => value + 1);
-        }, 1000);
+        const timer = window.setInterval(
+            () => setRemaining((value) => Math.max(0, value - 1)),
+            1000,
+        );
 
         return () => window.clearInterval(timer);
     }, []);
 
-    const question = questions[current];
-    const selectedOption = answers[question.id] ?? null;
-    const answeredCount = Object.keys(answers).length;
-    const progress = Math.round((answeredCount / questions.length) * 100);
+    useEffect(() => {
+        if (remaining === 0) {
+            submit();
+        }
+    }, [remaining, submit]);
 
-    const select = (questionId: number, optionId: number) => {
-        setAnswers((previous) => ({ ...previous, [questionId]: optionId }));
+    const choose = (questionId: number, optionId: number) => {
+        const next = answers[questionId] === optionId ? null : optionId;
+
+        setAnswers((current) => ({ ...current, [questionId]: next }));
+        setSaveState('saving');
+
+        fetch(saveAnswerRoute.url(exam.id), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': xsrfToken(),
+            },
+            body: JSON.stringify({ question_id: questionId, option_id: next }),
+        })
+            .then((response) => setSaveState(response.ok ? 'saved' : 'error'))
+            .catch(() => setSaveState('error'));
     };
 
-    const finish = () => {
-        const unanswered = questions.length - answeredCount;
+    const finishSection = () => {
+        const blank = questions.length - answeredCount;
 
         if (
-            unanswered > 0 &&
+            blank > 0 &&
             !window.confirm(
-                `${unanswered} soru boş bırakıldı. Sınavı yine de bitirmek istiyor musunuz?`,
+                `${blank} soru boş. ${section.course} dersini yine de teslim etmek istiyor musunuz?`,
             )
         ) {
             return;
         }
 
-        router.post(
-            submitExam.url(session.id),
-            { answers },
-            {
-                onStart: () => setSubmitting(true),
-                onFinish: () => setSubmitting(false),
-            },
-        );
+        submit();
     };
+
+    const isLow = remaining <= 120;
 
     return (
         <>
-            <Head title={`${session.course} - Sınav`} />
+            <Head title={`${section.course} - Sınav`} />
 
-            <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
-                <div>
-                    <p className="text-xs font-medium tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
-                        {session.course}
-                    </p>
-                    <h1 className="mt-1 text-xl font-bold tracking-tight">
-                        Soru {current + 1}{' '}
-                        <span className="text-slate-400 dark:text-slate-500">
-                            / {questions.length}
-                        </span>
-                    </h1>
-                </div>
-
-                <div className="flex items-center gap-6">
-                    <div className="text-center">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Süre
+            <div className="sticky top-16 z-20 -mx-4 mb-6 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 dark:border-slate-800 dark:bg-slate-950/95">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-medium tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
+                            {exam.sections.length > 1
+                                ? `${section.position}. ders / ${exam.sections.length}`
+                                : exam.levelLabel}
                         </p>
-                        <p className="font-mono text-lg font-semibold tabular-nums">
-                            {formatTime(elapsed)}
-                        </p>
+                        <h1 className="text-lg font-bold tracking-tight">
+                            {section.course}
+                        </h1>
                     </div>
-                    <div className="text-center">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Cevaplanan
-                        </p>
-                        <p className="text-lg font-semibold">
-                            {answeredCount}
-                            <span className="text-slate-400 dark:text-slate-500">
-                                /{questions.length}
-                            </span>
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={finish}
-                        disabled={submitting}
-                        className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {submitting ? 'Gönderiliyor...' : 'Sınavı Bitir'}
-                    </button>
-                </div>
-            </div>
-
-            <div className="mb-8 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                <div
-                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-sm leading-relaxed font-medium whitespace-pre-line sm:text-base">
-                        {question.text}
-                    </p>
-
-                    <div className="mt-6 flex flex-col gap-3">
-                        {question.options.map((option) => {
-                            const isSelected = selectedOption === option.id;
-
-                            return (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() =>
-                                        select(question.id, option.id)
-                                    }
-                                    className={`flex items-start gap-4 rounded-xl border p-4 text-left transition ${
-                                        isSelected
-                                            ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500 dark:border-indigo-400 dark:bg-indigo-950/40'
-                                            : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-indigo-600 dark:hover:bg-slate-800/60'
-                                    }`}
-                                >
-                                    <span
-                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                                            isSelected
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                        }`}
-                                    >
-                                        {option.label}
-                                    </span>
-                                    <span className="pt-1 text-sm text-slate-700 dark:text-slate-200">
-                                        {option.text}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <div className="mt-8 flex items-center justify-between">
+                    <div className="flex items-center gap-5">
+                        <div className="text-center">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Kalan süre
+                            </p>
+                            <p
+                                className={cn(
+                                    'font-mono text-xl font-bold tabular-nums',
+                                    isLow && 'animate-pulse text-rose-600',
+                                )}
+                            >
+                                {formatDuration(remaining)}
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Cevaplanan
+                            </p>
+                            <p className="text-xl font-bold">
+                                {answeredCount}
+                                <span className="text-slate-400">
+                                    /{questions.length}
+                                </span>
+                            </p>
+                        </div>
                         <button
                             type="button"
-                            onClick={() => setCurrent((index) => index - 1)}
-                            disabled={current === 0}
-                            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                            onClick={finishSection}
+                            disabled={submitting}
+                            className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
                         >
-                            ← Önceki
+                            {submitting
+                                ? 'Teslim ediliyor...'
+                                : 'Dersi teslim et'}
                         </button>
-                        {current === questions.length - 1 ? (
-                            <button
-                                type="button"
-                                onClick={finish}
-                                disabled={submitting}
-                                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
-                            >
-                                Sınavı Bitir
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setCurrent((index) => index + 1)}
-                                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
-                            >
-                                Sonraki →
-                            </button>
-                        )}
+                    </div>
+                </div>
+            </div>
+
+            <SectionProgress exam={exam} currentPosition={section.position} />
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_220px]">
+                <section className="rounded-2xl border border-slate-300 bg-white p-5 shadow-sm sm:p-8 dark:border-slate-700 dark:bg-slate-900">
+                    <h2 className="mb-6 border-b-2 border-slate-800 pb-2 text-sm font-bold tracking-wide uppercase dark:border-slate-300">
+                        {section.course}
+                    </h2>
+
+                    <div className="gap-10 xl:columns-2">
+                        {questions.map((question) => {
+                            const isShort = hasShortOptions(question.options);
+
+                            return (
+                                <article
+                                    key={question.id}
+                                    id={`soru-${question.number}`}
+                                    className="mb-8 break-inside-avoid"
+                                >
+                                    <QuestionStem
+                                        number={question.number}
+                                        passage={question.passage}
+                                        text={question.text}
+                                    />
+
+                                    <div
+                                        className={cn(
+                                            'mt-3 grid gap-2 pl-5',
+                                            isShort && 'grid-cols-2',
+                                        )}
+                                    >
+                                        {question.options.map((option) => {
+                                            const isSelected =
+                                                answers[question.id] ===
+                                                option.id;
+
+                                            return (
+                                                <button
+                                                    key={option.id}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        choose(
+                                                            question.id,
+                                                            option.id,
+                                                        )
+                                                    }
+                                                    aria-pressed={isSelected}
+                                                    className={cn(
+                                                        'flex items-start gap-2 rounded-lg border px-3 py-2 text-left text-[15px] transition',
+                                                        isSelected
+                                                            ? 'border-indigo-500 bg-indigo-50 font-medium dark:bg-indigo-950/50'
+                                                            : 'border-transparent hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-800/60',
+                                                    )}
+                                                >
+                                                    <span className="font-bold">
+                                                        {option.label})
+                                                    </span>
+                                                    <span>{option.text}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 </section>
 
-                <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <h2 className="text-sm font-semibold">Soru Haritası</h2>
-                    <div className="mt-4 grid grid-cols-5 gap-2">
-                        {questions.map((item, index) => {
-                            const isAnswered = answers[item.id] !== undefined;
-                            const isCurrent = index === current;
-
-                            return (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => setCurrent(index)}
-                                    className={`flex h-9 items-center justify-center rounded-lg text-sm font-semibold transition ${
-                                        isCurrent
-                                            ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900'
-                                            : ''
-                                    } ${
-                                        isAnswered
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                                    }`}
+                <aside className="hidden lg:block">
+                    <div className="sticky top-40 rounded-2xl border border-slate-300 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                        <p className="text-center text-xs font-bold tracking-wide uppercase">
+                            Cevap kâğıdı
+                        </p>
+                        <p className="mb-3 truncate text-center text-[11px] text-slate-500">
+                            {section.course}
+                        </p>
+                        <div className="grid gap-1.5">
+                            {questions.map((question) => (
+                                <div
+                                    key={question.id}
+                                    className="flex items-center gap-2"
                                 >
-                                    {index + 1}
-                                </button>
-                            );
-                        })}
-                    </div>
+                                    <a
+                                        href={`#soru-${question.number}`}
+                                        className="w-5 text-right text-xs font-semibold tabular-nums"
+                                    >
+                                        {question.number}
+                                    </a>
+                                    <div className="flex gap-1">
+                                        {question.options.map((option) => {
+                                            const isSelected =
+                                                answers[question.id] ===
+                                                option.id;
 
-                    <div className="mt-5 flex flex-col gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded bg-emerald-500" />
-                            Cevaplandı
-                        </span>
-                        <span className="flex items-center gap-2">
-                            <span className="h-3 w-3 rounded bg-slate-200 dark:bg-slate-700" />
-                            Boş
-                        </span>
+                                            return (
+                                                <button
+                                                    key={option.id}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        choose(
+                                                            question.id,
+                                                            option.id,
+                                                        )
+                                                    }
+                                                    aria-label={`${question.number}. soru ${option.label} şıkkı`}
+                                                    className={cn(
+                                                        'flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold transition',
+                                                        isSelected
+                                                            ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                                                            : 'border-slate-400 text-slate-500 hover:border-slate-700',
+                                                    )}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-3 text-center text-[11px] text-slate-500">
+                            {saveState === 'saving' && 'Kaydediliyor...'}
+                            {saveState === 'saved' && 'Cevaplar kaydedildi'}
+                            {saveState === 'error' && (
+                                <span className="text-rose-600">
+                                    Kaydedilemedi, teslimde gönderilecek
+                                </span>
+                            )}
+                        </p>
                     </div>
                 </aside>
             </div>
