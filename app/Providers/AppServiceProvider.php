@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\Questions\LocalQuestionGenerator;
 use App\Services\Questions\OpenRouterQuestionGenerator;
 use App\Services\Questions\QuestionGenerator;
@@ -10,6 +11,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -42,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureRateLimiting();
+
+        Gate::define('access-admin', fn (User $user): bool => $user->is_admin);
     }
 
     /**
@@ -50,7 +54,7 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('question-generation', fn (Request $request): Limit => Limit::perHour(3)->by($request->ip()));
+        RateLimiter::for('question-generation', fn (Request $request): Limit => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
 
         RateLimiter::for('exam-start', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
 

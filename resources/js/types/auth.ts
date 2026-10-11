@@ -9,6 +9,13 @@ export type User = {
     [key: string]: unknown; // This allows for additional properties...
 };
 
+export type AuthUser = {
+    id: number;
+    name: string;
+    email: string;
+    is_admin: boolean;
+};
+
 export type Auth = {
-    user: User;
+    user: AuthUser | null;
 };

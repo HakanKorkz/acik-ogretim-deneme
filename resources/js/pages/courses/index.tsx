@@ -1,9 +1,8 @@
-import { store as generateQuestions } from '@/actions/App/Http/Controllers/CourseQuestionController';
 import { store as startExam } from '@/actions/App/Http/Controllers/ExamSessionController';
 import FlashMessage from '@/components/flash-message';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router, usePoll } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 interface CourseItem {
     id: number;
@@ -12,8 +11,6 @@ interface CourseItem {
     description: string | null;
     questions_count: number;
     exam_sessions_count: number;
-    is_generating: boolean;
-    generation_failed: boolean;
 }
 
 interface Stats {
@@ -27,7 +24,6 @@ interface Props {
     courses: CourseItem[];
     stats: Stats;
     questionsPerExam: number;
-    canGenerateQuestions: boolean;
 }
 
 function StatCard({
@@ -49,42 +45,13 @@ function StatCard({
     );
 }
 
-function CoursesIndex({
-    courses,
-    stats,
-    questionsPerExam,
-    canGenerateQuestions,
-}: Props) {
+function CoursesIndex({ courses, stats, questionsPerExam }: Props) {
     const [busy, setBusy] = useState<string | null>(null);
-    const isAnyGenerating = courses.some((course) => course.is_generating);
-
-    const { start: startPolling, stop: stopPolling } = usePoll(
-        5000,
-        { only: ['courses', 'stats'] },
-        { autoStart: false },
-    );
-
-    useEffect(() => {
-        if (isAnyGenerating) {
-            startPolling();
-        } else {
-            stopPolling();
-        }
-    }, [isAnyGenerating, startPolling, stopPolling]);
 
     const start = (course: CourseItem) => {
         setBusy(course.slug);
         router.post(
             startExam.url(course.slug),
-            {},
-            { onFinish: () => setBusy(null) },
-        );
-    };
-
-    const generate = (course: CourseItem) => {
-        setBusy(course.slug);
-        router.post(
-            generateQuestions.url(course.slug),
             {},
             { onFinish: () => setBusy(null) },
         );
@@ -159,8 +126,6 @@ function CoursesIndex({
                     {courses.map((course) => {
                         const isBusy = busy === course.slug;
                         const hasQuestions = course.questions_count > 0;
-                        const showGenerate =
-                            canGenerateQuestions && !hasQuestions;
 
                         return (
                             <article
@@ -188,17 +153,6 @@ function CoursesIndex({
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {course.exam_sessions_count} oturum
                                     </span>
-                                    {course.is_generating && (
-                                        <span className="animate-pulse rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                            Sorular üretiliyor
-                                        </span>
-                                    )}
-                                    {course.generation_failed &&
-                                        !course.is_generating && (
-                                            <span className="rounded-full bg-rose-100 px-2.5 py-1 font-medium text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                                                Üretim başarısız
-                                            </span>
-                                        )}
                                 </div>
 
                                 <div className="mt-6 flex flex-col gap-2">
@@ -208,27 +162,12 @@ function CoursesIndex({
                                         disabled={!hasQuestions || isBusy}
                                         className="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {isBusy && hasQuestions
-                                            ? 'Hazırlanıyor...'
-                                            : 'Sınavı Başlat'}
+                                        {!hasQuestions
+                                            ? 'Sorular hazırlanıyor'
+                                            : isBusy
+                                              ? 'Hazırlanıyor...'
+                                              : 'Sınavı Başlat'}
                                     </button>
-
-                                    {showGenerate && (
-                                        <button
-                                            type="button"
-                                            onClick={() => generate(course)}
-                                            disabled={
-                                                isBusy || course.is_generating
-                                            }
-                                            className="inline-flex w-full items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950/70"
-                                        >
-                                            {course.is_generating
-                                                ? 'Üretiliyor...'
-                                                : course.generation_failed
-                                                  ? 'Yeniden Dene'
-                                                  : 'Soruları Üret'}
-                                        </button>
-                                    )}
                                 </div>
                             </article>
                         );

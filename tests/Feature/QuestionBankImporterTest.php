@@ -95,6 +95,14 @@ test('yeniden üretim geçmiş sınav sonuçlarını bozmaz', function () {
             ->where('review.0.question', fn (string $text): bool => str_starts_with($text, 'Eski soru')));
 });
 
+test('ders listesi sınav uzunluğunu gösterir', function () {
+    config()->set('exam.questions_per_exam', 20);
+    Course::factory()->create();
+
+    $this->get(route('courses.index'))
+        ->assertInertia(fn ($page) => $page->where('questionsPerExam', 20));
+});
+
 test('sınav soru bankasından ayarlanan sayıda soru seçer', function () {
     config()->set('exam.questions_per_exam', 20);
     $course = Course::factory()->create();

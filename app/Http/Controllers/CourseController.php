@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\QuestionGenerationStatus;
 use App\Models\Course;
 use App\Models\ExamSession;
 use Inertia\Inertia;
@@ -28,11 +27,8 @@ class CourseController extends Controller
                 'description' => $course->description,
                 'questions_count' => $course->questions_count,
                 'exam_sessions_count' => $course->exam_sessions_count,
-                'is_generating' => $course->isGeneratingQuestions(),
-                'generation_failed' => $course->question_generation_status === QuestionGenerationStatus::Failed,
             ])->values(),
             'questionsPerExam' => (int) config('exam.questions_per_exam'),
-            'canGenerateQuestions' => (bool) config('exam.web_generation'),
             'stats' => [
                 'courses' => $courses->count(),
                 'questions' => (int) $courses->sum('questions_count'),

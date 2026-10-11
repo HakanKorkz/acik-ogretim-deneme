@@ -4,27 +4,31 @@ use App\Enums\QuestionGenerationStatus;
 use App\Jobs\GenerateCourseQuestions;
 use App\Models\Course;
 use App\Models\Question;
+use App\Models\User;
 use App\Services\Questions\QuestionBankImporter;
 use Illuminate\Support\Facades\Queue;
 
-test('web üzerinden üretim kapalıyken istek reddedilir', function () {
-    config()->set('exam.web_generation', false);
+test('misafir ve yönetici olmayan kullanıcı soru üretemez', function () {
     Queue::fake();
     $course = Course::factory()->create();
 
-    $this->post(route('courses.questions.store', $course))->assertForbidden();
+    $this->post(route('admin.courses.questions.store', $course))->assertRedirect(route('login'));
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('admin.courses.questions.store', $course))
+        ->assertForbidden();
 
     Queue::assertNothingPushed();
 });
 
 test('üretim isteği kuyruğa alınır ve ders sırada olarak işaretlenir', function () {
-    config()->set('exam.web_generation', true);
     Queue::fake();
     $course = Course::factory()->create();
 
-    $this->from(route('courses.index'))
-        ->post(route('courses.questions.store', $course))
-        ->assertRedirect(route('courses.index'))
+    $this->actingAs(User::factory()->admin()->create())
+        ->from(route('admin.courses.index'))
+        ->post(route('admin.courses.questions.store', $course))
+        ->assertRedirect(route('admin.courses.index'))
         ->assertSessionHas('success');
 
     Queue::assertPushed(GenerateCourseQuestions::class, fn (GenerateCourseQuestions $job): bool => $job->course->is($course));
@@ -34,38 +38,41 @@ test('üretim isteği kuyruğa alınır ve ders sırada olarak işaretlenir', fu
 });
 
 test('devam eden üretim varken yeni iş kuyruğa alınmaz', function () {
-    config()->set('exam.web_generation', true);
     Queue::fake();
     $course = Course::factory()->create();
     $course->markQuestionGeneration(QuestionGenerationStatus::Running);
 
-    $this->post(route('courses.questions.store', $course))->assertSessionHas('error');
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('admin.courses.questions.store', $course))
+        ->assertSessionHas('error');
 
     Queue::assertNothingPushed();
 });
 
 test('takılı kalmış eski üretim durumu yeni üretimi engellemez', function () {
-    config()->set('exam.web_generation', true);
     Queue::fake();
     $course = Course::factory()->create();
     $course->markQuestionGeneration(QuestionGenerationStatus::Running);
 
     $this->travel(config('exam.generation_stale_after_minutes') + 1)->minutes();
 
-    $this->post(route('courses.questions.store', $course))->assertSessionHas('success');
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('admin.courses.questions.store', $course))
+        ->assertSessionHas('success');
 
     Queue::assertPushed(GenerateCourseQuestions::class);
 });
 
-test('soru üretim isteği IP başına sınırlandırılır', function () {
-    config()->set('exam.web_generation', true);
+test('mevcut soruları olan ders yeniden üretime alınabilir', function () {
     Queue::fake();
+    $course = Course::factory()->create();
+    Question::factory()->count(3)->withOptions()->for($course)->create();
 
-    foreach (range(1, 3) as $attempt) {
-        $this->post(route('courses.questions.store', Course::factory()->create()))->assertRedirect();
-    }
+    $this->actingAs(User::factory()->admin()->create())
+        ->post(route('admin.courses.questions.store', $course))
+        ->assertSessionHas('success');
 
-    $this->post(route('courses.questions.store', Course::factory()->create()))->assertTooManyRequests();
+    Queue::assertPushed(GenerateCourseQuestions::class);
 });
 
 test('başarılı iş üretim durumunu temizler', function () {
@@ -91,16 +98,14 @@ test('başarısız iş dersi başarısız olarak işaretler', function () {
         ->and($course->isGeneratingQuestions())->toBeFalse();
 });
 
-test('ders listesi üretim durumunu ve sınav uzunluğunu gösterir', function () {
-    config()->set('exam.questions_per_exam', 20);
-    config()->set('exam.web_generation', true);
+test('yönetici ders listesinde üretim durumunu görür', function () {
     $course = Course::factory()->create();
     $course->markQuestionGeneration(QuestionGenerationStatus::Running);
-    Question::factory()->count(3)->withOptions()->for(Course::factory())->create();
 
-    $this->get(route('courses.index'))
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(route('admin.courses.index'))
+        ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('questionsPerExam', 20)
-            ->where('canGenerateQuestions', true)
-            ->where('courses', fn ($courses): bool => collect($courses)->firstWhere('id', $course->id)['is_generating'] === true));
+            ->component('admin/courses/index')
+            ->where('courses.0.isGenerating', true));
 });

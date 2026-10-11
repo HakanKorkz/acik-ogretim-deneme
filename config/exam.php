@@ -39,19 +39,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Web Arayüzünden Soru Üretimi
-    |--------------------------------------------------------------------------
-    |
-    | Soru üretimi pahalı bir işlemdir (PDF ayrıştırma + yapay zekâ çağrısı).
-    | Uygulamada kimlik doğrulama olmadığından varsayılan olarak kapalıdır;
-    | kapalıyken sorular yalnızca `php artisan questions:generate` ile üretilir.
-    |
-    */
-
-    'web_generation' => (bool) env('EXAM_WEB_GENERATION', false),
-
-    /*
-    |--------------------------------------------------------------------------
     | Takılı Kalmış Üretimlerin Zaman Aşımı (dakika)
     |--------------------------------------------------------------------------
     |

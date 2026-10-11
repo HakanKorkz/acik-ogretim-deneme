@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\Enums\QuestionGenerationStatus;
+use App\Http\Controllers\Controller;
 use App\Jobs\GenerateCourseQuestions;
 use App\Models\Course;
 use Illuminate\Http\RedirectResponse;
@@ -10,19 +11,13 @@ use Illuminate\Http\RedirectResponse;
 class CourseQuestionController extends Controller
 {
     /**
-     * Bir dersin PDF kaynağından soru üretimini kuyruğa alır.
+     * Bir dersin soru bankası üretimini kuyruğa alır.
      *
-     * Üretim `exam.web_generation` ayarı açıkken web'den tetiklenebilir;
-     * aksi hâlde yalnızca `php artisan questions:generate` kullanılır.
+     * Mevcut sorular varsa yeniden üretilir; sınavlarda kullanılmış olanlar
+     * arşivlenir, geçmiş sonuçlar bozulmaz.
      */
     public function store(Course $course): RedirectResponse
     {
-        abort_unless(config('exam.web_generation'), 403, 'Web üzerinden soru üretimi kapalı.');
-
-        if ($course->questions()->exists()) {
-            return back()->with('error', 'Bu ders için sorular zaten üretilmiş.');
-        }
-
         if (blank($course->file_path)) {
             return back()->with('error', 'Bu ders için bir PDF kaynağı tanımlı değil.');
         }
@@ -35,6 +30,6 @@ class CourseQuestionController extends Controller
 
         GenerateCourseQuestions::dispatch($course);
 
-        return back()->with('success', 'Soru üretimi başlatıldı. Hazır olduğunda bu sayfa kendiliğinden güncellenecek.');
+        return back()->with('success', "{$course->name} için soru üretimi başlatıldı.");
     }
 }
