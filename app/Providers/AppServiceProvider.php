@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Providers;
+
+use App\Services\Questions\LocalQuestionGenerator;
+use App\Services\Questions\OpenRouterQuestionGenerator;
+use App\Services\Questions\QuestionGenerator;
+use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        // Soru üreticisi `config('exam.generator')` değerine göre belirlenir.
+        // OpenRouter seçili ancak API anahtarı yoksa güvenli biçimde yerel
+        // üreticiye düşülür.
+        $this->app->bind(QuestionGenerator::class, function ($app): QuestionGenerator {
+            if (config('exam.generator') === 'openrouter' && filled(config('exam.openrouter.key'))) {
+                return new OpenRouterQuestionGenerator(
+                    $app->make(LocalQuestionGenerator::class),
+                );
+            }
+
+            return $app->make(LocalQuestionGenerator::class);
+        });
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        $this->configureDefaults();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Kimlik doğrulama olmadığından pahalı ya da kayıt oluşturan uç noktalar
+     * IP başına sınırlandırılır.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('question-generation', fn (Request $request): Limit => Limit::perHour(3)->by($request->ip()));
+
+        RateLimiter::for('exam-start', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
+
+        RateLimiter::for('exam-submit', fn (Request $request): Limit => Limit::perMinute(20)->by($request->ip()));
+    }
+
+    /**
+     * Configure default behaviors for production-ready applications.
+     */
+    protected function configureDefaults(): void
+    {
+        Date::use(CarbonImmutable::class);
+
+        DB::prohibitDestructiveCommands(
+            app()->isProduction(),
+        );
+
+        Password::defaults(fn (): ?Password => app()->isProduction()
+            ? Password::min(12)
+                ->mixedCase()
+                ->letters()
+                ->numbers()
+                ->symbols()
+                ->uncompromised()
+            : null,
+        );
+    }
+}
