@@ -1,6 +1,10 @@
+import BookUploadFields, {
+    type UploadOptions,
+} from '@/components/book-upload-fields';
 import FormField from '@/components/form-field';
 import AdminLayout from '@/layouts/admin-layout';
 import { index, update } from '@/routes/admin/courses';
+import { update as updateBook } from '@/routes/admin/courses/book';
 import { Form, Head, Link } from '@inertiajs/react';
 
 interface PagePreview {
@@ -26,6 +30,7 @@ interface Props {
         pageOffset: number | null;
         pageCount: number | null;
     };
+    upload: (UploadOptions & { storedOn: string | null }) | null;
     scopePreview: {
         first: PagePreview | null;
         last: PagePreview | null;
@@ -50,7 +55,7 @@ function Preview({ title, page }: { title: string; page: PagePreview | null }) {
     );
 }
 
-function CourseEdit({ course, scopePreview }: Props) {
+function CourseEdit({ course, scopePreview, upload }: Props) {
     return (
         <>
             <Head title={course.name} />
@@ -177,6 +182,49 @@ function CourseEdit({ course, scopePreview }: Props) {
                         </>
                     )}
                 </Form>
+
+                {upload && (
+                    <Form
+                        {...updateBook.form(course.slug)}
+                        options={{ preserveScroll: true }}
+                        resetOnSuccess
+                        className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                    >
+                        {({ errors, processing, progress }) => (
+                            <>
+                                <div>
+                                    <h2 className="text-base font-semibold">
+                                        Kitabı değiştir
+                                    </h2>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {upload.storedOn
+                                            ? `Şu an: ${upload.storedOn}. `
+                                            : ''}
+                                        Yeni PDF yüklenince eski dosya silinir
+                                        ve metin yeniden çıkarılır; mevcut
+                                        sorular korunur.
+                                    </p>
+                                </div>
+                                <BookUploadFields
+                                    upload={upload}
+                                    error={errors.book}
+                                    progress={progress}
+                                />
+                                <div>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                    >
+                                        {processing
+                                            ? 'Yükleniyor...'
+                                            : 'Kitabı yükle'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </Form>
+                )}
             </div>
         </>
     );

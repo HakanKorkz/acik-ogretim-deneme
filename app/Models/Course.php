@@ -6,6 +6,7 @@ use App\Enums\CourseLevel;
 use App\Enums\CourseSource;
 use App\Enums\QuestionGenerationStatus;
 use App\Enums\TextStatus;
+use App\Services\Media\BookUploader;
 use Carbon\CarbonImmutable;
 use Database\Factories\CourseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,6 +17,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * @property int $id
@@ -26,7 +29,9 @@ use Illuminate\Support\Carbon;
  * @property CourseSource $source
  * @property string|null $external_key
  * @property string|null $source_url
- * @property string|null $file_path
+ * @property string|null $file_path Yüklenen kitabın yerel diskteki yolu.
+ * @property string|null $upload_disk `local` ya da `cloudinary`.
+ * @property string|null $upload_public_id Cloudinary kimliği.
  * @property string|null $description
  * @property int|null $page_from
  * @property int|null $page_to
@@ -47,7 +52,7 @@ use Illuminate\Support\Carbon;
  * @property-read int $exam_sessions_count
  */
 #[Fillable([
-    'level', 'name', 'subject', 'slug', 'source', 'external_key', 'source_url', 'file_path', 'description',
+    'level', 'name', 'subject', 'slug', 'source', 'external_key', 'source_url', 'file_path', 'upload_disk', 'upload_public_id', 'description',
     'page_from', 'page_to', 'page_offset', 'page_count', 'text_status', 'text_extracted_at',
     'source_last_modified', 'source_size', 'source_changed_at', 'is_active', 'sort_order',
     'question_generation_status', 'question_generation_updated_at',
@@ -149,12 +154,36 @@ class Course extends Model
     }
 
     /**
-     * PDF kaynağının mutlak yolu. Göreli yollar public/ altına göre çözülür.
+     * Kademe ve ada göre benzersiz adres. Lise ve ortaokulda aynı adlı
+     * dersler olabildiğinden ortaokul derslerinin adresine kademe eklenir;
+     * çakışma kalırsa sayı eklenir.
+     */
+    public static function uniqueSlug(CourseLevel $level, string $name): string
+    {
+        $base = Str::slug($level === CourseLevel::Ortaokul ? "ortaokul {$name}" : $name);
+        $slug = $base;
+        $suffix = 2;
+
+        while (self::query()->where('slug', $slug)->exists()) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Sunucudaki PDF'in mutlak yolu (yüklenen kitaplar özel diskte durur).
+     * MEB ve Cloudinary kitaplarında null: bunlar adresinden indirilir.
      */
     public function pdfAbsolutePath(): ?string
     {
         if (blank($this->file_path)) {
             return null;
+        }
+
+        if ($this->upload_disk === BookUploader::LOCAL_DISK) {
+            return Storage::disk(BookUploader::LOCAL_DISK)->path($this->file_path);
         }
 
         if (str_starts_with($this->file_path, DIRECTORY_SEPARATOR)) {

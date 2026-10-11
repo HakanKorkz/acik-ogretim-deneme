@@ -40,6 +40,9 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
     Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
     Route::get('courses', [Admin\CourseController::class, 'index'])->name('courses.index');
+    Route::get('courses/create', [Admin\CourseBookController::class, 'create'])->name('courses.create');
+    Route::post('courses', [Admin\CourseBookController::class, 'store'])->name('courses.store');
+    Route::post('courses/{course}/book', [Admin\CourseBookController::class, 'update'])->name('courses.book.update');
     Route::get('courses/{course}/edit', [Admin\CourseController::class, 'edit'])->name('courses.edit');
     Route::put('courses/{course}', [Admin\CourseController::class, 'update'])->name('courses.update');
 
@@ -61,6 +64,9 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
         ->name('past-exams.sync');
     Route::post('past-exams/{pastExam}/import', [Admin\PastExamController::class, 'import'])->name('past-exams.import');
     Route::post('past-exam-sections/{section}/retry', [Admin\PastExamController::class, 'retrySection'])->name('past-exam-sections.retry');
+
+    Route::get('settings/media', [Admin\MediaSettingsController::class, 'edit'])->name('settings.media.edit');
+    Route::put('settings/media', [Admin\MediaSettingsController::class, 'update'])->name('settings.media.update');
 
     Route::get('settings/ai', [Admin\AiSettingsController::class, 'edit'])->name('settings.ai.edit');
     Route::put('settings/ai', [Admin\AiSettingsController::class, 'update'])->name('settings.ai.update');

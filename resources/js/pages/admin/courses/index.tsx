@@ -1,7 +1,7 @@
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
 import { sync } from '@/routes/admin/catalog';
-import { edit, index } from '@/routes/admin/courses';
+import { create, edit, index } from '@/routes/admin/courses';
 import { store as generateQuestions } from '@/routes/admin/courses/questions';
 import { store as extractText } from '@/routes/admin/courses/text';
 import { Head, Link, router, usePoll } from '@inertiajs/react';
@@ -178,14 +178,22 @@ function CoursesIndex({ courses, filters, levels, questionsPerCourse }: Props) {
                         {questionsPerCourse} soruluk banka üretilir.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={runSync}
-                    disabled={syncing}
-                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
-                >
-                    {syncing ? 'Eşitleniyor...' : 'MEB kataloğunu eşitle'}
-                </button>
+                <div className="flex gap-2">
+                    <Link
+                        href={create.url()}
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                        PDF ile ders ekle
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={runSync}
+                        disabled={syncing}
+                        className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
+                    >
+                        {syncing ? 'Eşitleniyor...' : 'MEB kataloğunu eşitle'}
+                    </button>
+                </div>
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">

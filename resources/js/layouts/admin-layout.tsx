@@ -6,6 +6,7 @@ import { index as coursesIndex } from '@/routes/admin/courses';
 import { index as pastExamsIndex } from '@/routes/admin/past-exams';
 import { edit as profileEdit } from '@/routes/admin/profile';
 import { edit as aiSettingsEdit } from '@/routes/admin/settings/ai';
+import { edit as mediaSettingsEdit } from '@/routes/admin/settings/media';
 import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
@@ -14,6 +15,7 @@ const navigation = [
     { label: 'Dersler', href: coursesIndex.url() },
     { label: 'Çıkmış Sorular', href: pastExamsIndex.url() },
     { label: 'Yapay Zekâ', href: aiSettingsEdit.url() },
+    { label: 'Depolama', href: mediaSettingsEdit.url() },
     { label: 'Profil', href: profileEdit.url() },
 ];
 

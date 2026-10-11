@@ -2,7 +2,6 @@
 
 namespace App\Services\Books;
 
-use App\Enums\CourseSource;
 use App\Enums\TextStatus;
 use App\Models\Course;
 use App\Services\Pdf\PdfTextExtractor;
@@ -38,8 +37,10 @@ class CourseTextExtractor
      */
     public function extract(Course $course): int
     {
-        $download = $course->source === CourseSource::Aokul ? $this->download($course) : null;
-        $path = $download['path'] ?? $course->pdfAbsolutePath();
+        // Sunucuda dosyası olmayan kitaplar (MEB kataloğu, Cloudinary) adresinden indirilir.
+        $localPath = $course->pdfAbsolutePath();
+        $download = $localPath === null && filled($course->source_url) ? $this->download($course) : null;
+        $path = $download['path'] ?? $localPath;
 
         if ($path === null) {
             throw new RuntimeException("{$course->name} için PDF kaynağı tanımlı değil.");

@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\CourseLevel;
+use App\Enums\CourseSource;
 use App\Enums\QuestionGenerationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateCourseRequest;
 use App\Models\BookPage;
 use App\Models\Course;
+use App\Services\Media\BookUploader;
+use App\Settings\MediaSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -54,7 +57,7 @@ class CourseController extends Controller
     /**
      * Sayfa aralığı, kaydırma ve yayın durumu düzenleme ekranı.
      */
-    public function edit(Course $course): Response
+    public function edit(Course $course, MediaSettings $media): Response
     {
         $course->loadCount(['questions', 'examSessions', 'pages']);
 
@@ -69,6 +72,13 @@ class CourseController extends Controller
                 'pageCount' => $course->page_count,
             ],
             'scopePreview' => $course->hasText() ? $this->scopePreview($course) : null,
+            'upload' => $course->source === CourseSource::Upload ? [
+                'storedOn' => $course->upload_disk === 'cloudinary' ? 'Cloudinary' : ($course->upload_disk === BookUploader::LOCAL_DISK ? 'Sunucu' : null),
+                'defaultTarget' => $media->default_target,
+                'cloudinaryConfigured' => $media->cloudinaryConfigured(),
+                'cloudinaryMaxMegabytes' => $media->cloudinary_max_megabytes,
+                'maxMegabytes' => (int) config('exam.upload_max_megabytes'),
+            ] : null,
         ]);
     }
 

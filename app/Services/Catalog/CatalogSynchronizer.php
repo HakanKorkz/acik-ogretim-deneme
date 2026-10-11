@@ -5,7 +5,6 @@ namespace App\Services\Catalog;
 use App\Enums\CourseLevel;
 use App\Enums\CourseSource;
 use App\Models\Course;
-use Illuminate\Support\Str;
 
 /**
  * aokul kataloğunu `courses` tablosuyla eşitler.
@@ -65,7 +64,7 @@ class CatalogSynchronizer
             'level' => $level,
             'name' => $entry->name,
             'subject' => $entry->subject,
-            'slug' => $this->uniqueSlug($level, $entry->name),
+            'slug' => Course::uniqueSlug($level, $entry->name),
             'source' => CourseSource::Aokul,
             'external_key' => $entry->externalKey,
             'source_url' => $entry->pdfUrl,
@@ -115,23 +114,5 @@ class CatalogSynchronizer
         $course->save();
 
         return true;
-    }
-
-    /**
-     * Lise ve ortaokulda aynı adlı dersler olabildiğinden ortaokul
-     * derslerinin adresine kademe eklenir; çakışma kalırsa sayı eklenir.
-     */
-    private function uniqueSlug(CourseLevel $level, string $name): string
-    {
-        $base = Str::slug($level === CourseLevel::Ortaokul ? "ortaokul {$name}" : $name);
-        $slug = $base;
-        $suffix = 2;
-
-        while (Course::query()->where('slug', $slug)->exists()) {
-            $slug = "{$base}-{$suffix}";
-            $suffix++;
-        }
-
-        return $slug;
     }
 }

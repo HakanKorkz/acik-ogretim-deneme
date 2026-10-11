@@ -34,6 +34,10 @@ return [
 
     'pass_score' => 50,
 
+    // Panelden yüklenebilecek ders kitabı PDF'inin üst sınırı (MB). Sunucuda
+    // upload_max_filesize, post_max_size ve web sunucusu sınırı da buna göre olmalı.
+    'upload_max_megabytes' => (int) env('EXAM_UPLOAD_MAX_MEGABYTES', 300),
+
     /*
     |--------------------------------------------------------------------------
     | Kendini Büyüten Soru Bankası
