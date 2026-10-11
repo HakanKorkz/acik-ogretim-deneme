@@ -160,6 +160,27 @@ test('bölüm aktarımında doğru şık her zaman cevap anahtarından gelir', f
         ->and($section->skipped_count)->toBe(1);
 });
 
+test('soru numarası atılır ve bölünmüş cümle köke birleştirilir', function () {
+    configureAi();
+    $section = PastExamSection::factory()->for(Course::factory())->create(['answer_key' => ['1' => 'B', '2' => 'A']]);
+
+    PastQuestionExtractor::fake([[
+        'questions' => [
+            extractedQuestion(1, ['passage' => '1. Tehdit altında inançsız olduğunu söyleyen kimsenin mümin sayılması', 'text' => 'aşağıdaki kavramlardan hangisiyle ifade edilir?']),
+            extractedQuestion(2, ['passage' => '2. “Ey insanlar!” (Yunus suresi, 57. ayet)', 'text' => 'Bu ayet hangisiyle ilgilidir?']),
+        ],
+    ]]);
+
+    app(PastExamImporter::class)->importSection($section);
+
+    [$first, $second] = Question::query()->orderBy('past_exam_number')->get()->all();
+
+    expect($first->passage)->toBeNull()
+        ->and($first->text)->toBe('Tehdit altında inançsız olduğunu söyleyen kimsenin mümin sayılması aşağıdaki kavramlardan hangisiyle ifade edilir?')
+        ->and($second->passage)->toBe('“Ey insanlar!” (Yunus suresi, 57. ayet)')
+        ->and($second->text)->toBe('Bu ayet hangisiyle ilgilidir?');
+});
+
 test('bölüm yeniden aktarılınca aynı sorular tekrar eklenmez', function () {
     configureAi();
     $section = PastExamSection::factory()->for(Course::factory())->create(['answer_key' => ['1' => 'B']]);

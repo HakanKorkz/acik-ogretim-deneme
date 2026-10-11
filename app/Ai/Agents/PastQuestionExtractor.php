@@ -2,10 +2,12 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Concerns\DisablesReasoning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 
@@ -16,14 +18,14 @@ use Laravel\Ai\Promptable;
  */
 #[Temperature(0)]
 #[MaxTokens(8192)]
-final class PastQuestionExtractor implements Agent, HasStructuredOutput
+final class PastQuestionExtractor implements Agent, HasProviderOptions, HasStructuredOutput
 {
+    use DisablesReasoning, Promptable;
+
     public function __construct(
         private string $courseHeading,
         private string $sectionText,
     ) {}
-
-    use Promptable;
 
     public function instructions(): string
     {

@@ -2,10 +2,12 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Concerns\DisablesReasoning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\MaxTokens;
 use Laravel\Ai\Attributes\Temperature;
 use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 
@@ -17,9 +19,9 @@ use Laravel\Ai\Promptable;
  */
 #[Temperature(0.4)]
 #[MaxTokens(8192)]
-final class QuestionWriter implements Agent, HasStructuredOutput
+final class QuestionWriter implements Agent, HasProviderOptions, HasStructuredOutput
 {
-    use Promptable;
+    use DisablesReasoning, Promptable;
 
     /**
      * @param  list<string>  $styleExamples  Aynı dersin gerçek çıkmış soruları.

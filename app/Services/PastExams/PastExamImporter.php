@@ -189,6 +189,18 @@ class PastExamImporter
                 continue;
             }
 
+            // Kitapçıktaki soru numarası metne karışabilir ("1. İnsanda …").
+            $passage = trim((string) preg_replace('/^\d{1,2}\.\s*/u', '', $passage));
+            $text = trim((string) preg_replace('/^\d{1,2}\.\s*/u', '', $text));
+
+            // Model tek cümleyi bölebilir: giriş "… mümin sayılması", kök
+            // "aşağıdaki kavramlardan hangisiyle …". Küçük harfle başlayan kök
+            // girişin devamıdır.
+            if ($passage !== '' && preg_match('/^\p{Ll}/u', $text)) {
+                $text = "{$passage} {$text}";
+                $passage = '';
+            }
+
             $questions[$number] = [
                 'number' => $number,
                 'passage' => $passage === '' ? null : $passage,
