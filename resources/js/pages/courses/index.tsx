@@ -1,7 +1,9 @@
 import { store as startExam } from '@/actions/App/Http/Controllers/ExamSessionController';
 import FlashMessage from '@/components/flash-message';
 import AppLayout from '@/layouts/app-layout';
-import { Head, router } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
+import { index as coursesIndex } from '@/routes/courses';
+import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 
 interface CourseItem {
@@ -24,6 +26,8 @@ interface Props {
     courses: CourseItem[];
     stats: Stats;
     questionsPerExam: number;
+    level: string;
+    levels: { value: string; label: string }[];
 }
 
 function StatCard({
@@ -45,7 +49,13 @@ function StatCard({
     );
 }
 
-function CoursesIndex({ courses, stats, questionsPerExam }: Props) {
+function CoursesIndex({
+    courses,
+    stats,
+    questionsPerExam,
+    level,
+    levels,
+}: Props) {
     const [busy, setBusy] = useState<string | null>(null);
 
     const start = (course: CourseItem) => {
@@ -77,6 +87,25 @@ function CoursesIndex({ courses, stats, questionsPerExam }: Props) {
 
             <div className="mt-8">
                 <FlashMessage />
+                <div className="mb-6 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                    {levels.map((item) => (
+                        <Link
+                            key={item.value}
+                            href={coursesIndex.url({
+                                query: { level: item.value },
+                            })}
+                            preserveScroll
+                            className={cn(
+                                'flex-1 rounded-lg px-3 py-2 text-center text-sm font-medium transition',
+                                level === item.value
+                                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white'
+                                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300',
+                            )}
+                        >
+                            {item.label}
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

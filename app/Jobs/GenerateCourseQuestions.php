@@ -56,13 +56,7 @@ class GenerateCourseQuestions implements ShouldBeUnique, ShouldQueue
     {
         $this->course->markQuestionGeneration(QuestionGenerationStatus::Running);
 
-        $maxPages = config('exam.pdf_max_pages');
-
-        $created = $importer->import(
-            $this->course,
-            (int) config('exam.questions_per_course'),
-            is_int($maxPages) ? $maxPages : null,
-        );
+        $created = $importer->import($this->course, (int) config('exam.questions_per_course'));
 
         if ($created === 0) {
             throw new RuntimeException("PDF içeriğinden uygun soru üretilemedi: {$this->course->name}");

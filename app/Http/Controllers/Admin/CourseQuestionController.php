@@ -18,7 +18,7 @@ class CourseQuestionController extends Controller
      */
     public function store(Course $course): RedirectResponse
     {
-        if (blank($course->file_path)) {
+        if (! $course->hasText() && blank($course->source_url) && blank($course->file_path)) {
             return back()->with('error', 'Bu ders için bir PDF kaynağı tanımlı değil.');
         }
 

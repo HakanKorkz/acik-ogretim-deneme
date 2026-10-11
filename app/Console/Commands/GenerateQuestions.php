@@ -7,14 +7,14 @@ use App\Services\Questions\QuestionBankImporter;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Throwable;
 
 #[Signature('questions:generate
     {course? : Sadece bu slug ile eşleşen ders için üret}
     {--count= : Ders başına üretilecek soru sayısı (varsayılan: config)}
-    {--pages= : PDF için işlenecek maksimum sayfa sayısı}
     {--driver= : Soru üretim sürücüsü (ai|local)}
     {--force : Mevcut sorular olsa bile yeniden üret}')]
-#[Description('Derslerin PDF kaynaklarından çoktan seçmeli sorular üretir')]
+#[Description('Derslerin kitap metninden çoktan seçmeli soru bankası üretir (ders verilmezse tüm aktif dersler)')]
 class GenerateQuestions extends Command
 {
     /**
@@ -34,34 +34,26 @@ class GenerateQuestions extends Command
             ? (int) $this->option('count')
             : (int) config('exam.questions_per_course');
 
-        $maxPages = $this->option('pages') !== null
-            ? (int) $this->option('pages')
-            : config('exam.pdf_max_pages');
+        $slug = $this->argument('course');
 
         $courses = Course::query()
             ->when(
-                $this->argument('course'),
+                $slug,
                 fn ($query, string $slug) => $query->where('slug', $slug),
+                fn ($query) => $query->active(),
             )
-            ->orderBy('name')
+            ->orderBy('level')
+            ->orderBy('sort_order')
             ->get();
 
         if ($courses->isEmpty()) {
-            $this->components->error('İşlenecek ders bulunamadı. Önce `php artisan courses:scan` çalıştırın.');
+            $this->components->error('İşlenecek ders bulunamadı. Önce `php artisan catalog:sync` çalıştırıp dersleri aktifleştirin.');
 
             return self::FAILURE;
         }
 
         foreach ($courses as $course) {
             $this->components->info("Ders: {$course->name}");
-
-            $absolutePath = $course->pdfAbsolutePath();
-
-            if ($absolutePath === null || ! is_file($absolutePath)) {
-                $this->components->warn('PDF bulunamadı: '.($absolutePath ?? $course->name));
-
-                continue;
-            }
 
             if (! $this->option('force') && $course->questions()->exists()) {
                 $this->components->warn('Sorular zaten mevcut, atlanıyor (yeniden üretmek için --force kullanın).');
@@ -71,7 +63,13 @@ class GenerateQuestions extends Command
 
             $startedAt = microtime(true);
 
-            $created = $importer->import($course, $count, is_int($maxPages) ? $maxPages : null);
+            try {
+                $created = $importer->import($course, $count);
+            } catch (Throwable $exception) {
+                $this->components->error($exception->getMessage());
+
+                continue;
+            }
 
             $elapsed = round(microtime(true) - $startedAt, 1);
 

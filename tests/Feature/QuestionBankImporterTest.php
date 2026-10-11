@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Services\Pdf\PdfTextExtractor;
 use App\Services\Questions\QuestionBankImporter;
 use App\Services\Questions\QuestionGenerator;
+use Illuminate\Support\Facades\File;
 
 /**
  * Doğru yanıtı her zaman A şıkkına koyan sahte üretici bağlar.
@@ -33,15 +34,9 @@ function bindAlwaysFirstOptionGenerator(string $prefix = 'Soru'): void
     });
 }
 
-beforeEach(function () {
-    $this->mock(PdfTextExtractor::class)
-        ->shouldReceive('extract')
-        ->andReturn('örnek ders metni');
-});
-
 test('şıklar karıştırılır ve doğru şık tek bir harfte toplanmaz', function () {
     bindAlwaysFirstOptionGenerator();
-    $course = Course::factory()->create();
+    $course = Course::factory()->withText()->create();
 
     app(QuestionBankImporter::class)->import($course, 40);
 
@@ -59,7 +54,7 @@ test('şıklar karıştırılır ve doğru şık tek bir harfte toplanmaz', func
 
 test('yeniden üretim geçmiş sınav sonuçlarını bozmaz', function () {
     bindAlwaysFirstOptionGenerator('Eski soru');
-    $course = Course::factory()->create();
+    $course = Course::factory()->withText()->create();
     app(QuestionBankImporter::class)->import($course, 10);
 
     config()->set('exam.questions_per_exam', 5);
@@ -111,4 +106,50 @@ test('sınav soru bankasından ayarlanan sayıda soru seçer', function () {
     $this->post(route('exams.store', $course));
 
     expect(ExamSession::sole()->total_questions)->toBe(20);
+});
+
+test('soru üretimine yalnızca sorumluluk aralığındaki sayfalar gönderilir', function () {
+    $received = new ArrayObject;
+
+    app()->instance(QuestionGenerator::class, new class($received) implements QuestionGenerator
+    {
+        public function __construct(private ArrayObject $received) {}
+
+        public function generate(string $sourceText, int $count = 10): array
+        {
+            $this->received['text'] = $sourceText;
+
+            return [];
+        }
+    });
+
+    $course = Course::factory()->withText(6)->create(['page_from' => 2, 'page_to' => 3, 'page_offset' => 1]);
+
+    app(QuestionBankImporter::class)->import($course, 5);
+
+    expect($received['text'])->toContain('Sayfa 3.')->toContain('Sayfa 4.')
+        ->not->toContain('Sayfa 2.')->not->toContain('Sayfa 5.');
+});
+
+test('metni hazır olmayan dersin metni önce çıkarılır', function () {
+    bindAlwaysFirstOptionGenerator();
+
+    $this->mock(PdfTextExtractor::class)
+        ->shouldReceive('extractPages')
+        ->once()
+        ->andReturn([1 => 'Birinci sayfa metni.', 2 => 'İkinci sayfa metni.']);
+
+    $course = Course::factory()->create();
+    File::ensureDirectoryExists(public_path('dersler'));
+    File::put(public_path($course->file_path), '%PDF');
+
+    try {
+        $created = app(QuestionBankImporter::class)->import($course, 3);
+    } finally {
+        File::delete(public_path($course->file_path));
+    }
+
+    expect($created)->toBe(3)
+        ->and($course->refresh()->hasText())->toBeTrue()
+        ->and($course->pages()->count())->toBe(2);
 });

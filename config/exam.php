@@ -4,18 +4,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | PDF Kaynak Dizini
-    |--------------------------------------------------------------------------
-    |
-    | Ders PDF dosyalarının yer aldığı dizin. `questions:generate` komutu ve
-    | PDF ayrıştırma servisi varsayılan olarak bu dizini tarar.
-    |
-    */
-
-    'pdf_path' => public_path('dersler'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Soru Bankası Büyüklüğü
     |--------------------------------------------------------------------------
     |
@@ -48,18 +36,6 @@ return [
     */
 
     'generation_stale_after_minutes' => (int) env('EXAM_GENERATION_STALE_AFTER_MINUTES', 30),
-
-    /*
-    |--------------------------------------------------------------------------
-    | PDF İçin Maksimum Sayfa Sayısı
-    |--------------------------------------------------------------------------
-    |
-    | Çok büyük PDF dosyalarında performans için işlenecek maksimum sayfa
-    | sayısı. `null` verilirse tüm sayfalar işlenir.
-    |
-    */
-
-    'pdf_max_pages' => env('EXAM_PDF_MAX_PAGES') !== null ? (int) env('EXAM_PDF_MAX_PAGES') : null,
 
     /*
     |--------------------------------------------------------------------------

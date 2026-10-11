@@ -2,18 +2,25 @@
 
 namespace Database\Seeders;
 
-use App\Services\Courses\CourseScanner;
+use App\Enums\CourseLevel;
+use App\Services\Catalog\CatalogSynchronizer;
 use Illuminate\Database\Seeder;
+use Throwable;
 
 class CourseSeeder extends Seeder
 {
     /**
-     * `public/dersler` dizinindeki PDF dosyalarından ders kayıtları oluşturur.
+     * Dersleri MEB aokul.gov.tr kataloğundan oluşturur (PDF indirmez).
      */
-    public function run(): void
+    public function run(CatalogSynchronizer $synchronizer): void
     {
-        $courses = app(CourseScanner::class)->scan();
-
-        $this->command->info(count($courses).' ders tarandı.');
+        foreach (CourseLevel::cases() as $level) {
+            try {
+                $summary = $synchronizer->sync($level);
+                $this->command->info("{$level->label()}: {$summary['created']} ders eklendi.");
+            } catch (Throwable $exception) {
+                $this->command->warn("{$level->label()} kataloğu alınamadı: {$exception->getMessage()}");
+            }
+        }
     }
 }

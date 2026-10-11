@@ -8,11 +8,11 @@ use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
- * PDF dosyalarından düz metin çıkarır.
+ * PDF dosyalarından sayfa sayfa düz metin çıkarır.
  *
  * Öncelik sırası:
  *  1. Sistemde `pdftotext` (poppler) varsa onunla — hızlı ve karakter kodlaması
- *     açısından güvenilirdir.
+ *     açısından güvenilirdir. Sayfalar form-feed (\f) ile ayrılır.
  *  2. Aksi hâlde `smalot/pdfparser` ile.
  */
 class PdfTextExtractor
@@ -24,39 +24,41 @@ class PdfTextExtractor
     ) {}
 
     /**
-     * Bir PDF dosyasındaki metni çıkarır.
+     * Bir PDF dosyasının sayfalarını çıkarır.
      *
      * @param  string  $path  PDF dosyasının mutlak yolu.
-     * @param  int|null  $maxPages  İşlenecek maksimum sayfa (null ise tümü).
+     * @return array<int, string> PDF sırası (1'den başlar) → sayfa metni.
      *
-     * @throws RuntimeException Dosya bulunamazsa.
+     * @throws RuntimeException Dosya okunamazsa.
      */
-    public function extract(string $path, ?int $maxPages = null): string
+    public function extractPages(string $path): array
     {
         if (! is_file($path) || ! is_readable($path)) {
             throw new RuntimeException("PDF dosyası okunamadı: {$path}");
         }
 
-        $text = $this->extractWithPdftotext($path, $maxPages);
+        $pages = $this->extractWithPdftotext($path);
 
-        if ($text !== null && trim($text) !== '') {
-            return $text;
+        if ($pages !== null && trim(implode('', $pages)) !== '') {
+            return $pages;
         }
 
-        return $this->extractWithParser($path, $maxPages);
+        return $this->extractWithParser($path);
     }
 
     /**
-     * `pdftotext` ile metni çıkarır. Kullanılamıyorsa null döner.
+     * `pdftotext` ile sayfaları çıkarır. Kullanılamıyorsa null döner.
+     *
+     * @return array<int, string>|null
      */
-    private function extractWithPdftotext(string $path, ?int $maxPages): ?string
+    private function extractWithPdftotext(string $path): ?array
     {
         if ($this->pdftotextAvailable === false) {
             return null;
         }
 
         try {
-            $process = new Process($this->buildCommand($path, $maxPages));
+            $process = new Process(['pdftotext', '-enc', 'UTF-8', $path, '-']);
             $process->setTimeout(600);
             $process->run();
             $this->pdftotextAvailable = true;
@@ -70,51 +72,43 @@ class PdfTextExtractor
             return null;
         }
 
-        return $process->getOutput();
-    }
+        $pages = explode("\f", $process->getOutput());
 
-    /**
-     * @return array<int, string>
-     */
-    private function buildCommand(string $path, ?int $maxPages): array
-    {
-        $command = ['pdftotext', '-enc', 'UTF-8'];
-
-        if ($maxPages !== null && $maxPages > 0) {
-            $command[] = '-f';
-            $command[] = '1';
-            $command[] = '-l';
-            $command[] = (string) $maxPages;
+        // Çıktı son sayfadan sonra da bir \f ile biter.
+        if (count($pages) > 1 && trim($pages[array_key_last($pages)]) === '') {
+            array_pop($pages);
         }
 
-        $command[] = $path;
-        $command[] = '-';
-
-        return $command;
+        return $this->numbered($pages);
     }
 
     /**
      * `smalot/pdfparser` ile yedek çıkarım.
+     *
+     * @return array<int, string>
      */
-    private function extractWithParser(string $path, ?int $maxPages): string
+    private function extractWithParser(string $path): array
     {
-        $pdf = $this->parser->parseFile($path);
-        $pages = $pdf->getPages();
+        $pages = array_map(
+            static fn ($page): string => $page->getText(),
+            $this->parser->parseFile($path)->getPages(),
+        );
 
-        if ($maxPages !== null && $maxPages > 0) {
-            $pages = array_slice($pages, 0, $maxPages);
+        return $this->numbered($pages);
+    }
+
+    /**
+     * @param  array<int, string>  $pages
+     * @return array<int, string>
+     */
+    private function numbered(array $pages): array
+    {
+        $numbered = [];
+
+        foreach (array_values($pages) as $index => $content) {
+            $numbered[$index + 1] = $content;
         }
 
-        $chunks = [];
-
-        foreach ($pages as $page) {
-            $text = trim($page->getText());
-
-            if ($text !== '') {
-                $chunks[] = $text;
-            }
-        }
-
-        return implode("\n", $chunks);
+        return $numbered;
     }
 }

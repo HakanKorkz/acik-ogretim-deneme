@@ -29,6 +29,16 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
     Route::get('/', Admin\DashboardController::class)->name('dashboard');
 
     Route::get('courses', [Admin\CourseController::class, 'index'])->name('courses.index');
+    Route::get('courses/{course}/edit', [Admin\CourseController::class, 'edit'])->name('courses.edit');
+    Route::put('courses/{course}', [Admin\CourseController::class, 'update'])->name('courses.update');
+
+    Route::post('catalog/sync', [Admin\CatalogSyncController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('catalog.sync');
+
+    Route::post('courses/{course}/text', [Admin\CourseTextController::class, 'store'])
+        ->middleware('throttle:question-generation')
+        ->name('courses.text.store');
 
     Route::post('courses/{course}/questions', [Admin\CourseQuestionController::class, 'store'])
         ->middleware('throttle:question-generation')

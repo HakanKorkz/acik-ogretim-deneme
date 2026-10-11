@@ -4,7 +4,7 @@ namespace App\Services\Questions;
 
 use App\Models\Course;
 use App\Models\Question;
-use App\Services\Pdf\PdfTextExtractor;
+use App\Services\Books\CourseTextExtractor;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -16,23 +16,27 @@ class QuestionBankImporter
 
     public function __construct(
         private readonly QuestionGenerator $generator,
-        private readonly PdfTextExtractor $extractor,
+        private readonly CourseTextExtractor $textExtractor,
     ) {}
 
     /**
-     * Bir dersin PDF kaynağından soruları üretip veritabanına kaydeder.
+     * Dersin sorumlu olduğu sayfalardan soruları üretip veritabanına kaydeder.
+     * Kitap metni henüz çıkarılmamışsa önce çıkarılır.
      *
      * @return int Oluşturulan soru sayısı.
      */
-    public function import(Course $course, int $count = 10, ?int $maxPages = null): int
+    public function import(Course $course, int $count = 10): int
     {
-        $path = $course->pdfAbsolutePath();
-
-        if ($path === null) {
-            throw new RuntimeException("Ders için PDF yolu tanımlı değil: {$course->name}");
+        if (! $course->hasText()) {
+            $this->textExtractor->extract($course);
+            $course->refresh();
         }
 
-        $text = $this->extractor->extract($path, $maxPages);
+        $text = $course->pagesInScope()->pluck('content')->implode("\n");
+
+        if (trim($text) === '') {
+            throw new RuntimeException("{$course->name} için sorumluluk aralığında metin bulunamadı.");
+        }
 
         $generated = $this->generator->generate($text, $count);
 
