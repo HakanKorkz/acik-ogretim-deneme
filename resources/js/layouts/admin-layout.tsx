@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         </span>
                         <span className="flex flex-col leading-tight">
                             <span className="text-sm font-semibold">
-                                Açık Lise Test
+                                Açık Öğretim Deneme
                             </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
                                 Yönetim Paneli

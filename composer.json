@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/blank-react-starter-kit",
+    "name": "hakankorkz/acik-ogretim-deneme",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Açık Öğretim Lisesi ve Ortaokulu için gerçek sınav düzeninde deneme sınavı uygulaması.",
     "keywords": [
         "laravel",
         "framework"

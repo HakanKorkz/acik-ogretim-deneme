@@ -20,7 +20,7 @@ export default function Login({ status }: Props) {
                         Yönetici Girişi
                     </h1>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                        Açık Lise Test yönetim paneli
+                        Açık Öğretim Deneme yönetim paneli
                     </p>
                 </div>
 

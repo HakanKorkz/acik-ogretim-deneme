@@ -16,10 +16,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                         </span>
                         <span className="flex flex-col leading-tight">
                             <span className="text-sm font-semibold tracking-tight sm:text-base">
-                                Açık Lise Test
+                                Açık Öğretim Deneme
                             </span>
                             <span className="text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
-                                Online Test &amp; Sınav Otomasyonu
+                                Lise ve Ortaokul Deneme Sınavları
                             </span>
                         </span>
                     </Link>

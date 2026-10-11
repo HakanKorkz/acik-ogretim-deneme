@@ -1,4 +1,4 @@
-# Açık Öğretim Deneme Sınavı
+# Açık Öğretim Deneme
 
 Açık Öğretim Lisesi ve Açık Öğretim Ortaokulu adayları için, gerçek sınav düzeninde çevrim içi deneme sınavı uygulaması.
 
@@ -15,25 +15,25 @@ Sorular iki kaynaktan gelir:
 - Soru türü: yalnızca çıkmış sorular, yapay zekâ destekli sorular ya da karışık.
 - Sonuç gösterimi: her ders bitince o dersin sonucu ya da en sonda toplu sonuç.
 - Gerçek sınav düzeni:
-  - Dersler sırayla çözülür, birbirine karışmaz; her derste 10 soru vardır.
-  - Her dersin kendi süresi vardır (varsayılan 15 dk). Süre sunucuda tutulur; dolunca ders kendiliğinden teslim edilir.
-  - Sınav "Adayların dikkatine" ekranı ve **BAŞLAYINIZ** düğmesiyle başlar.
-  - Sorular iki sütunlu kitapçık görünümünde, yanında optik cevap kâğıdıyla gösterilir.
-  - Olumsuz kökler ("…değildir?") kitapçıktaki gibi vurgulanır.
-  - Cevaplar işaretlendiği anda kaydedilir; sayfa yenilense de kaybolmaz.
+    - Dersler sırayla çözülür, birbirine karışmaz; her derste 10 soru vardır.
+    - Her dersin kendi süresi vardır (varsayılan 15 dk). Süre sunucuda tutulur; dolunca ders kendiliğinden teslim edilir.
+    - Sınav "Adayların dikkatine" ekranı ve **BAŞLAYINIZ** düğmesiyle başlar.
+    - Sorular iki sütunlu kitapçık görünümünde, yanında optik cevap kâğıdıyla gösterilir.
+    - Olumsuz kökler ("…değildir?") kitapçıktaki gibi vurgulanır.
+    - Cevaplar işaretlendiği anda kaydedilir; sayfa yenilense de kaybolmaz.
 - Puan 100 üzerindendir, geçme notu 50'dir. Sonuçta cevap anahtarı ve sorunun kitaptaki sayfasına bağlantı bulunur.
 - Her sınav öncekinden bağımsızdır:
-  - Ziyaretçinin daha önce gördüğü sorular sona bırakılır (anonim, hesap gerektirmeyen tarayıcı kimliği).
-  - Şık sırası her sınavda yeniden karıştırılır.
-  - Görülmemiş soru azalınca derse arka planda yeni sorular eklenir.
+    - Ziyaretçinin daha önce gördüğü sorular sona bırakılır (anonim, hesap gerektirmeyen tarayıcı kimliği).
+    - Şık sırası her sınavda yeniden karıştırılır.
+    - Görülmemiş soru azalınca derse arka planda yeni sorular eklenir.
 
 ### Yönetim paneli (`/admin`)
 
 - **Dersler:**
-  - MEB kataloğunu eşitleme.
-  - Kitap metnini hazırlama, soru bankası üretme.
-  - Sorumluluk aralığını ve sayfa kaydırmasını düzenleme (önizlemeli).
-  - Yayına alma.
+    - MEB kataloğunu eşitleme.
+    - Kitap metnini hazırlama, soru bankası üretme.
+    - Sorumluluk aralığını ve sayfa kaydırmasını düzenleme (önizlemeli).
+    - Yayına alma.
 - **PDF ile ders ekleme:** Katalogda olmayan kitaplar için. Dosya sunucuda ya da Cloudinary'de saklanır.
 - **Çıkmış sorular:** MEB kitapçık listesini eşitleme, kitapçık içe aktarma, bölüm bazında durum ve yeniden deneme.
 - **Yapay zekâ:** OpenRouter, OpenAI ya da Anthropic seçimi; sıralı model listesi; şifreli anahtarlar; bağlantı testi.
@@ -57,8 +57,8 @@ Sorular iki kaynaktan gelir:
 ## Kurulum
 
 ```bash
-git clone https://github.com/HakanKorkz/acik-lise-test.git
-cd acik-lise-test
+git clone https://github.com/HakanKorkz/acik-ogretim-deneme.git
+cd acik-ogretim-deneme
 cp .env.example .env            # DB_* bilgilerini düzenleyin
 composer install
 php artisan key:generate
@@ -94,11 +94,11 @@ Zamanlanmış görevler için cron'a şu satır eklenir:
 * * * * * cd /yol/proje && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-| Görev | Zaman |
-|---|---|
-| `catalog:sync` — MEB kataloğu | Pazartesi 03:00 |
+| Görev                                                                                         | Zaman           |
+| --------------------------------------------------------------------------------------------- | --------------- |
+| `catalog:sync` — MEB kataloğu                                                                 | Pazartesi 03:00 |
 | `catalog:check-updates` — metni çıkarılmış kitapların PDF'i değişti mi (yalnızca HEAD isteği) | Pazartesi 03:30 |
-| `past-exams:sync` — çıkmış sınav listesi | Pazartesi 04:00 |
+| `past-exams:sync` — çıkmış sınav listesi                                                      | Pazartesi 04:00 |
 
 ### Yükleme sınırı
 
@@ -106,35 +106,35 @@ PDF yükleme sınırı `EXAM_UPLOAD_MAX_MEGABYTES` ile ayarlanır (varsayılan 3
 
 ### Cloudinary
 
-Ücretsiz planda dosya başına sınır yaklaşık **10 MB**'tır; daha büyük kitaplar otomatik olarak sunucuya kaydedilir. PDF'lerin dışarıya sunulabilmesi için Cloudinary hesabının *Security* ayarlarında **"Allow delivery of PDF and ZIP files"** açılmalıdır. Uygulama Cloudinary'nin imzalı REST API'sini doğrudan kullanır; ek paket gerekmez.
+Ücretsiz planda dosya başına sınır yaklaşık **10 MB**'tır; daha büyük kitaplar otomatik olarak sunucuya kaydedilir. PDF'lerin dışarıya sunulabilmesi için Cloudinary hesabının _Security_ ayarlarında **"Allow delivery of PDF and ZIP files"** açılmalıdır. Uygulama Cloudinary'nin imzalı REST API'sini doğrudan kullanır; ek paket gerekmez.
 
 ## Komutlar
 
-| Komut | Açıklama |
-|---|---|
-| `php artisan admin:create` | Yönetici oluşturur ya da mevcut kullanıcıyı yönetici yapar |
-| `php artisan catalog:sync [lise\|ortaokul]` | MEB ders kataloğunu eşitler |
-| `php artisan catalog:check-updates` | Değişen kitapları işaretler |
-| `php artisan questions:generate [ders] [--count=] [--driver=ai\|local] [--force]` | Soru bankası üretir (ders verilmezse tüm aktif dersler) |
-| `php artisan past-exams:sync` | Çıkmış sınav listesini eşitler |
-| `php artisan past-exams:import [--latest=3] [--id=*]` | Kitapçıkları kuyrukta içe aktarır (yalnızca yayındaki dersler) |
+| Komut                                                                             | Açıklama                                                       |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `php artisan admin:create`                                                        | Yönetici oluşturur ya da mevcut kullanıcıyı yönetici yapar     |
+| `php artisan catalog:sync [lise\|ortaokul]`                                       | MEB ders kataloğunu eşitler                                    |
+| `php artisan catalog:check-updates`                                               | Değişen kitapları işaretler                                    |
+| `php artisan questions:generate [ders] [--count=] [--driver=ai\|local] [--force]` | Soru bankası üretir (ders verilmezse tüm aktif dersler)        |
+| `php artisan past-exams:sync`                                                     | Çıkmış sınav listesini eşitler                                 |
+| `php artisan past-exams:import [--latest=3] [--id=*]`                             | Kitapçıkları kuyrukta içe aktarır (yalnızca yayındaki dersler) |
 
 ## Önemli ortam değişkenleri
 
-| Değişken | Varsayılan | Açıklama |
-|---|---|---|
-| `EXAM_QUESTIONS_PER_COURSE` | 40 | Ders başına üretilen soru bankası |
-| `EXAM_QUESTIONS_PER_EXAM` | 10 | Sınavda ders başına soru (gerçek AÖL: 10) |
-| `EXAM_SECTION_MINUTES` | 15 | Bir dersin süresi |
-| `EXAM_BANK_TOPUP_THRESHOLD` | 20 | Görülmemiş soru bunun altına inince bankaya soru eklenir |
-| `EXAM_BANK_MAX_PER_COURSE` | 400 | Ders başına banka üst sınırı |
-| `EXAM_GENERATOR` | `ai` | `ai` ya da `local` |
-| `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | — | Panelde anahtar yoksa kullanılır |
+| Değişken                                                    | Varsayılan | Açıklama                                                 |
+| ----------------------------------------------------------- | ---------- | -------------------------------------------------------- |
+| `EXAM_QUESTIONS_PER_COURSE`                                 | 40         | Ders başına üretilen soru bankası                        |
+| `EXAM_QUESTIONS_PER_EXAM`                                   | 10         | Sınavda ders başına soru (gerçek AÖL: 10)                |
+| `EXAM_SECTION_MINUTES`                                      | 15         | Bir dersin süresi                                        |
+| `EXAM_BANK_TOPUP_THRESHOLD`                                 | 20         | Görülmemiş soru bunun altına inince bankaya soru eklenir |
+| `EXAM_BANK_MAX_PER_COURSE`                                  | 400        | Ders başına banka üst sınırı                             |
+| `EXAM_GENERATOR`                                            | `ai`       | `ai` ya da `local`                                       |
+| `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | —          | Panelde anahtar yoksa kullanılır                         |
 
 ## Testler
 
 ```bash
-php artisan test --compact     # MySQL'de acik_lise_testing veritabanını kullanır
+php artisan test --compact     # MySQL'de acik_ogretim_deneme_testing veritabanını kullanır
 vendor/bin/phpstan analyse
 vendor/bin/pint
 npm run check && npm run types:check

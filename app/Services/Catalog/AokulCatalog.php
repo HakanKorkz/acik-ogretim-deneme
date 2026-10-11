@@ -30,7 +30,7 @@ class AokulCatalog
     public function fetch(CourseLevel $level): array
     {
         $response = Http::timeout(60)
-            ->withUserAgent('AcikLiseTest/1.0 (+katalog senkronizasyonu)')
+            ->withUserAgent('AcikOgretimDeneme/1.0 (+katalog senkronizasyonu)')
             ->get(self::BASE_URL.'Kitaplar.aspx', ['type' => $level->aokulType()]);
 
         if (! $response->successful()) {

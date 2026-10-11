@@ -111,7 +111,7 @@ class CourseTextExtractor
         $path = $directory.'/'.Str::uuid()->toString().'.pdf';
 
         $response = Http::timeout(600)
-            ->withUserAgent('AcikLiseTest/1.0 (+ders kitabı metni)')
+            ->withUserAgent('AcikOgretimDeneme/1.0 (+ders kitabı metni)')
             ->sink($path)
             ->get($course->source_url);
 

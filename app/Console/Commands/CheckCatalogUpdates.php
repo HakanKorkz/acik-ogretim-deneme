@@ -31,7 +31,7 @@ class CheckCatalogUpdates extends Command
         foreach ($courses as $course) {
             try {
                 $response = Http::timeout(30)
-                    ->withUserAgent('AcikLiseTest/1.0 (+güncelleme kontrolü)')
+                    ->withUserAgent('AcikOgretimDeneme/1.0 (+güncelleme kontrolü)')
                     ->head((string) $course->source_url);
             } catch (Throwable $exception) {
                 $this->components->warn("{$course->name}: {$exception->getMessage()}");
