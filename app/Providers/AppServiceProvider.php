@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Questions\AiQuestionGenerator;
 use App\Services\Questions\LocalQuestionGenerator;
-use App\Services\Questions\OpenRouterQuestionGenerator;
 use App\Services\Questions\QuestionGenerator;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -23,17 +23,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Soru üreticisi `config('exam.generator')` değerine göre belirlenir.
-        // OpenRouter seçili ancak API anahtarı yoksa güvenli biçimde yerel
-        // üreticiye düşülür.
+        // Soru üreticisi `config('exam.generator')` değerine göre seçilir.
+        // Yapay zekâ seçili olsa bile panelde anahtar/model yoksa üretici
+        // kendi içinde yerel üreticiye düşer.
         $this->app->bind(QuestionGenerator::class, function ($app): QuestionGenerator {
-            if (config('exam.generator') === 'openrouter' && filled(config('exam.openrouter.key'))) {
-                return new OpenRouterQuestionGenerator(
-                    $app->make(LocalQuestionGenerator::class),
-                );
-            }
-
-            return $app->make(LocalQuestionGenerator::class);
+            return config('exam.generator') === 'local'
+                ? $app->make(LocalQuestionGenerator::class)
+                : $app->make(AiQuestionGenerator::class);
         });
     }
 

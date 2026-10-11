@@ -4,6 +4,7 @@ import { logout } from '@/routes';
 import { dashboard } from '@/routes/admin';
 import { index as coursesIndex } from '@/routes/admin/courses';
 import { edit as profileEdit } from '@/routes/admin/profile';
+import { edit as aiSettingsEdit } from '@/routes/admin/settings/ai';
 import { index as publicCoursesIndex } from '@/routes/courses';
 import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
@@ -11,6 +12,7 @@ import type { ReactNode } from 'react';
 const navigation = [
     { label: 'Panel', href: dashboard.url() },
     { label: 'Dersler', href: coursesIndex.url() },
+    { label: 'Yapay Zekâ', href: aiSettingsEdit.url() },
     { label: 'Profil', href: profileEdit.url() },
 ];
 

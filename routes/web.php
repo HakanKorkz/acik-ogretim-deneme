@@ -34,5 +34,11 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
         ->middleware('throttle:question-generation')
         ->name('courses.questions.store');
 
+    Route::get('settings/ai', [Admin\AiSettingsController::class, 'edit'])->name('settings.ai.edit');
+    Route::put('settings/ai', [Admin\AiSettingsController::class, 'update'])->name('settings.ai.update');
+    Route::post('settings/ai/test', [Admin\AiSettingsController::class, 'test'])
+        ->middleware('throttle:6,1')
+        ->name('settings.ai.test');
+
     Route::get('profile', [Admin\ProfileController::class, 'edit'])->name('profile.edit');
 });

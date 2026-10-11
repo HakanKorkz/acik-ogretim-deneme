@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
     {course? : Sadece bu slug ile eşleşen ders için üret}
     {--count= : Ders başına üretilecek soru sayısı (varsayılan: config)}
     {--pages= : PDF için işlenecek maksimum sayfa sayısı}
-    {--driver= : Soru üretim sürücüsü (local|openrouter)}
+    {--driver= : Soru üretim sürücüsü (ai|local)}
     {--force : Mevcut sorular olsa bile yeniden üret}')]
 #[Description('Derslerin PDF kaynaklarından çoktan seçmeli sorular üretir')]
 class GenerateQuestions extends Command

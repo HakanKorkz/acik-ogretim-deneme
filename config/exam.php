@@ -66,48 +66,41 @@ return [
     | Soru Üretim Sürücüsü
     |--------------------------------------------------------------------------
     |
-    | `local`      : PDF metninden yerel (sezgisel) üretim.
-    | `openrouter` : OpenRouter üzerinden yapay zekâ ile üretim. API anahtarı
-    |                tanımlı değilse otomatik olarak `local`a düşer.
+    | `ai`    : Panelde seçilen yapay zekâ sağlayıcısı (OpenRouter, OpenAI,
+    |           Anthropic). Anahtar ya da model tanımlı değilse `local`e düşer.
+    | `local` : PDF metninden yerel (sezgisel) üretim; harici servis kullanmaz.
     |
     */
 
-    'generator' => env('EXAM_GENERATOR', 'local'),
+    'generator' => env('EXAM_GENERATOR', 'ai'),
 
     /*
     |--------------------------------------------------------------------------
-    | OpenRouter Ayarları
+    | Yapay Zekâ
     |--------------------------------------------------------------------------
     |
-    | OpenAI uyumlu chat completions API'si kullanılır.
+    | Sağlayıcı, anahtarlar ve model sırası yönetim panelinden (AiSettings)
+    | ayarlanır. Buradaki anahtarlar yalnızca panelde anahtar girilmemişse
+    | kullanılan geri düşüş değerleridir.
     |
     */
 
-    'openrouter' => [
-        'key' => env('OPENROUTER_API_KEY'),
-        // Tek model ya da "openrouter/free" yönlendiricisi kullanılabilir.
-        'model' => env('OPENROUTER_MODEL', 'openrouter/free'),
-        // Virgülle ayrılmış yedek model zinciri (doluysa `model` yerine bu
-        // gönderilir; OpenRouter sırayla dener). Ör. bir sağlayıcı 429 verirse
-        // otomatik olarak sonrakine geçer.
-        'models' => array_values(array_filter(array_map(
+    'ai' => [
+        'keys' => [
+            'openrouter' => env('OPENROUTER_API_KEY'),
+            'openai' => env('OPENAI_API_KEY'),
+            'anthropic' => env('ANTHROPIC_API_KEY'),
+        ],
+        // Tek bir model denemesinin zaman aşımı (saniye).
+        'timeout' => (int) env('EXAM_AI_TIMEOUT', 120),
+        // İlk kurulumda panele aktarılan varsayılanlar (sonrası panelden).
+        'initial_models' => array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('OPENROUTER_MODELS', '')),
+            explode(',', (string) env('OPENROUTER_MODELS', 'openrouter/free')),
         ))),
-        'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
-        'connect_timeout' => (int) env('OPENROUTER_CONNECT_TIMEOUT', 10),
-        'timeout' => (int) env('OPENROUTER_TIMEOUT', 90),
-        'max_input_chars' => (int) env('OPENROUTER_MAX_INPUT_CHARS', 12000),
-        // Tek istekte istenecek soru sayısı. Banka bu boyutta parçalara
-        // bölünür ve her parça, PDF'in farklı bir bölümünden üretilir.
-        'questions_per_request' => (int) env('OPENROUTER_QUESTIONS_PER_REQUEST', 10),
-        'max_tokens' => (int) env('OPENROUTER_MAX_TOKENS', 4096),
-        'temperature' => (float) env('OPENROUTER_TEMPERATURE', 0.4),
-        // Muhakeme (reasoning) modellerinin cevabı "düşünmeye" harcayıp JSON'u
-        // üretememesini önlemek için varsayılan olarak kapatılır.
-        'allow_reasoning' => (bool) env('OPENROUTER_ALLOW_REASONING', false),
-        // Modelin yapılandırılmış JSON döndürmesini ister (destekleyen modellerde).
-        'json_mode' => (bool) env('OPENROUTER_JSON_MODE', true),
+        'initial_questions_per_request' => (int) env('OPENROUTER_QUESTIONS_PER_REQUEST', 10),
+        // Bir isteğe gönderilecek en fazla kaynak metin uzunluğu (karakter).
+        'max_input_chars' => (int) env('EXAM_AI_MAX_INPUT_CHARS', 12000),
     ],
 
 ];
