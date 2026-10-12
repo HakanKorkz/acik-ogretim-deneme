@@ -108,6 +108,76 @@ PDF yükleme sınırı `EXAM_UPLOAD_MAX_MEGABYTES` ile ayarlanır (varsayılan 3
 
 Ücretsiz planda dosya başına sınır yaklaşık **10 MB**'tır; daha büyük kitaplar otomatik olarak sunucuya kaydedilir. PDF'lerin dışarıya sunulabilmesi için Cloudinary hesabının _Security_ ayarlarında **"Allow delivery of PDF and ZIP files"** açılmalıdır. Uygulama Cloudinary'nin imzalı REST API'sini doğrudan kullanır; ek paket gerekmez.
 
+## Yayına alırken (canlı ortam)
+
+### Sunucu
+
+- **poppler-utils** (`pdftotext`) kurulu olmalı. Kitap metni ve çıkmış sınav cevap anahtarı buna bağlı.
+- PHP eklentileri ve `storage/`, `bootstrap/cache/` yazma izinleri (web kullanıcısı, ör. `www-data`).
+- Yükleme sınırı en az `EXAM_UPLOAD_MAX_MEGABYTES` kadar olmalı: `upload_max_filesize`, `post_max_size` (php.ini) ve nginx `client_max_body_size`.
+
+### Ortam dosyası
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://alanadiniz
+```
+
+Veritabanı, kuyruk (`QUEUE_CONNECTION=database` ya da `redis`), önbellek ve posta ayarlarını canlı değerlere çevirin. Ayrıntılar için `.env.example`'a bakın.
+
+### Dağıtım adımları
+
+```bash
+composer install --no-dev --optimize-autoloader
+php artisan down --render="errors::503"        # isteğe bağlı, kısa kesinti
+php artisan migrate --force
+npm ci && npm run build
+php artisan optimize                           # config + event + route + view önbelleği
+php artisan queue:restart                      # kuyruk işçileri yeni kodu alsın
+php artisan up
+```
+
+> **Uyarı:** `php artisan optimize` (config önbelleği) çalıştırıldığında `.env` artık okunmaz ve yalnızca `config/` dosyalarındaki `env()` çağrıları geçerli olur. Kodda config dışında `env()` kullanmayın.
+
+### Kuyruk işçisi (Supervisor)
+
+Kuyruk işçisi kalıcı bir süreçtir; çökerse yeniden başlatılması için Supervisor gerekir. `/etc/supervisor/conf.d/` altına:
+
+```ini
+[program:acik-ogretim-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/acik-ogretim-deneme/artisan queue:work --sleep=3 --tries=1 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/acik-ogretim-deneme/storage/logs/worker.log
+stopwaitsecs=960
+```
+
+- `stopwaitsecs`, en uzun işten **büyük** olmalı (bu projede iş zaman aşımı 900 sn, `retry_after` 960 sn). `stopwaitsecs=960` bu yüzden.
+- `config/queue.php` içindeki `retry_after` (960) her zaman `queue:work --timeout` değerinden birkaç saniye uzun olmalı; değilse işler iki kez işlenebilir.
+
+### Zamanlayıcı
+
+```cron
+* * * * * cd /var/www/acik-ogretim-deneme && php artisan schedule:run >> /dev/null 2>&1
+```
+
+### İlk kurulum sonrası
+
+```bash
+php artisan admin:create      # yönetici hesabı
+php artisan catalog:sync      # MEB ders kataloğu
+php artisan past-exams:sync   # çıkmış sınav listesi
+```
+
+Ardından panelden yapay zekâ sağlayıcısını ve (kullanılacaksa) Cloudinary bilgilerini girin; dersleri yayına almadan önce soru bankalarını üretin.
+
 ## Komutlar
 
 | Komut                                                                             | Açıklama                                                       |
