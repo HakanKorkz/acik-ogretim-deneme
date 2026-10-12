@@ -106,7 +106,9 @@ PDF yükleme sınırı `EXAM_UPLOAD_MAX_MEGABYTES` ile ayarlanır (varsayılan 3
 
 ### Cloudinary
 
-Ücretsiz planda dosya başına sınır yaklaşık **10 MB**'tır; daha büyük kitaplar otomatik olarak sunucuya kaydedilir. PDF'lerin dışarıya sunulabilmesi için Cloudinary hesabının _Security_ ayarlarında **"Allow delivery of PDF and ZIP files"** açılmalıdır. Uygulama Cloudinary'nin imzalı REST API'sini doğrudan kullanır; ek paket gerekmez.
+Ücretsiz planda dosya başına sınır yaklaşık **10 MB**'tır; daha büyük kitaplar otomatik olarak sunucuya kaydedilir. Uygulama Cloudinary'nin imzalı REST API'sini doğrudan kullanır; ek paket gerekmez.
+
+> **Zorunlu ayar:** Cloudinary hesabının **Settings → Security** bölümünde **"Allow delivery of PDF and ZIP files"** açık olmalıdır. Kapalıyken yükleme başarılı olsa da `secure_url` istekleri **401** döner ve uygulama, Cloudinary'de tuttuğu kitabı metin çıkarmak için indiremez. Bu ayarı açmadan Cloudinary hedefini kullanmayın.
 
 ## Yayına alırken (canlı ortam)
 
