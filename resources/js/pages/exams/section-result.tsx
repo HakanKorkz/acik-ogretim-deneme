@@ -1,3 +1,4 @@
+import CopyJsonButton from '@/components/exam/copy-json-button';
 import CourseResultCard, {
     type CourseResult,
 } from '@/components/exam/course-result-card';
@@ -8,6 +9,7 @@ import SectionProgress, {
     type ExamSummary,
 } from '@/components/exam/section-progress';
 import AppLayout from '@/layouts/app-layout';
+import { buildExamResultJson } from '@/lib/exam';
 import { result as examResult, show } from '@/routes/exams';
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
@@ -56,6 +58,9 @@ function SectionResult({ exam, result, hasNextSection }: Props) {
                             ? 'Cevap anahtarını gizle'
                             : 'Cevap anahtarı ve çözümler'}
                     </button>
+                    <CopyJsonButton
+                        build={() => buildExamResultJson(exam, [result])}
+                    />
                 </div>
 
                 {showReview && (

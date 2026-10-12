@@ -45,6 +45,7 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
     Route::post('courses/{course}/book', [Admin\CourseBookController::class, 'update'])->name('courses.book.update');
     Route::get('courses/{course}/edit', [Admin\CourseController::class, 'edit'])->name('courses.edit');
     Route::put('courses/{course}', [Admin\CourseController::class, 'update'])->name('courses.update');
+    Route::post('courses/{course}/publish', [Admin\CourseController::class, 'publish'])->name('courses.publish');
 
     Route::post('catalog/sync', [Admin\CatalogSyncController::class, 'store'])
         ->middleware('throttle:6,1')

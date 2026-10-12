@@ -94,6 +94,19 @@ class CourseController extends Controller
     }
 
     /**
+     * Dersi tek tıkla yayına alır ya da yayından kaldırır. Yayında olmayan
+     * dersler ön yüzde listelenmez.
+     */
+    public function publish(Course $course): RedirectResponse
+    {
+        $course->forceFill(['is_active' => ! $course->is_active])->save();
+
+        return back()->with('success', $course->is_active
+            ? "{$course->name} yayına alındı."
+            : "{$course->name} yayından kaldırıldı.");
+    }
+
+    /**
      * Ders listesinde ve düzenleme ekranında ortak alanlar.
      *
      * @return array<string, mixed>

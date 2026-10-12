@@ -1,3 +1,4 @@
+import CopyJsonButton from '@/components/exam/copy-json-button';
 import CourseResultCard, {
     type CourseResult,
 } from '@/components/exam/course-result-card';
@@ -6,6 +7,7 @@ import QuestionReview, {
 } from '@/components/exam/question-review';
 import { type ExamSummary } from '@/components/exam/section-progress';
 import AppLayout from '@/layouts/app-layout';
+import { buildExamResultJson } from '@/lib/exam';
 import { cn } from '@/lib/utils';
 import { index as coursesIndex } from '@/routes/courses';
 import { Head, Link } from '@inertiajs/react';
@@ -100,6 +102,9 @@ function ExamResult({ exam, results, totals }: Props) {
                 >
                     Yeni sınava gir
                 </Link>
+                <CopyJsonButton
+                    build={() => buildExamResultJson(exam, results)}
+                />
             </div>
 
             <h2 className="mt-10 text-lg font-semibold">

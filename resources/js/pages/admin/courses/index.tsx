@@ -1,7 +1,7 @@
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
 import { sync } from '@/routes/admin/catalog';
-import { create, edit, index } from '@/routes/admin/courses';
+import { create, edit, index, publish } from '@/routes/admin/courses';
 import { store as generateQuestions } from '@/routes/admin/courses/questions';
 import { store as extractText } from '@/routes/admin/courses/text';
 import { Head, Link, router, usePoll } from '@inertiajs/react';
@@ -278,6 +278,30 @@ function CoursesIndex({ courses, filters, levels, questionsPerCourse }: Props) {
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="flex justify-end gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                post(publish.url(course.slug))
+                                            }
+                                            disabled={
+                                                course.questionsCount === 0
+                                            }
+                                            title={
+                                                course.questionsCount === 0
+                                                    ? 'Önce soru üretin'
+                                                    : undefined
+                                            }
+                                            className={cn(
+                                                actionClass,
+                                                course.isActive
+                                                    ? 'border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300'
+                                                    : 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300',
+                                            )}
+                                        >
+                                            {course.isActive
+                                                ? 'Yayından kaldır'
+                                                : 'Yayınla'}
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() =>

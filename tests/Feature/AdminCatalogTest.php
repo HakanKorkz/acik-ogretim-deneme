@@ -105,3 +105,19 @@ test('ön yüz yalnızca seçilen kademedeki aktif dersleri listeler', function 
     $this->get(route('courses.index', 'ortaokul'))
         ->assertInertia(fn ($page) => $page->has('courses', 1)->where('courses.0.name', 'Aktif Ortaokul'));
 });
+
+test('yönetici dersi tek tıkla yayına alır ve yayından kaldırır', function () {
+    $course = Course::factory()->inactive()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.courses.publish', $course))
+        ->assertSessionHas('success');
+
+    expect($course->refresh()->is_active)->toBeTrue();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.courses.publish', $course))
+        ->assertSessionHas('success');
+
+    expect($course->refresh()->is_active)->toBeFalse();
+});
