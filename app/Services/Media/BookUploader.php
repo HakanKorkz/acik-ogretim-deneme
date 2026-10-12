@@ -17,6 +17,8 @@ class BookUploader
 {
     public const LOCAL_DISK = 'local';
 
+    public const CLOUDINARY_DISK = 'cloudinary';
+
     public function __construct(
         private readonly MediaSettings $settings,
         private readonly CloudinaryClient $cloudinary,
@@ -29,12 +31,19 @@ class BookUploader
     public function store(Course $course, UploadedFile $file, ?string $target = null): ?string
     {
         $target ??= $this->settings->default_target;
-        $notice = $target === 'cloudinary' ? $this->settings->cloudinaryRejection((int) $file->getSize()) : null;
-        $useCloudinary = $target === 'cloudinary' && $notice === null;
-
-        $this->deleteStored($course);
+        $notice = $target === self::CLOUDINARY_DISK ? $this->settings->cloudinaryRejection((int) $file->getSize()) : null;
+        $useCloudinary = $target === self::CLOUDINARY_DISK && $notice === null;
 
         $name = $course->slug.'-'.Str::lower((string) Str::ulid());
+
+        // Yeni dosya başarıyla yazılmadan eskisi silinmez. Aksi hâlde yükleme
+        // yarıda kalırsa (Cloudinary hatası, disk dolu) ders, silinmiş bir
+        // dosyaya işaret eder ve kullanılamaz hâle gelirdi.
+        $previous = [
+            'disk' => $course->upload_disk,
+            'path' => $course->file_path,
+            'public_id' => $course->upload_public_id,
+        ];
 
         if ($useCloudinary) {
             $uploaded = $this->cloudinary->uploadRaw((string) $file->getRealPath(), "{$name}.pdf");
@@ -42,7 +51,7 @@ class BookUploader
             $course->forceFill([
                 'source_url' => $uploaded['url'],
                 'file_path' => null,
-                'upload_disk' => 'cloudinary',
+                'upload_disk' => self::CLOUDINARY_DISK,
                 'upload_public_id' => $uploaded['public_id'],
             ]);
         } else {
@@ -62,6 +71,8 @@ class BookUploader
             'source_changed_at' => null,
         ])->save();
 
+        $this->deleteStoredFile($previous['disk'], $previous['path'], $previous['public_id']);
+
         return $notice;
     }
 
@@ -70,12 +81,20 @@ class BookUploader
      */
     public function deleteStored(Course $course): void
     {
-        if ($course->upload_disk === self::LOCAL_DISK && filled($course->file_path)) {
-            Storage::disk(self::LOCAL_DISK)->delete($course->file_path);
+        $this->deleteStoredFile($course->upload_disk, $course->file_path, $course->upload_public_id);
+    }
+
+    /**
+     * Verilen depolama bilgisine ait dosyayı siler.
+     */
+    private function deleteStoredFile(?string $disk, ?string $path, ?string $publicId): void
+    {
+        if ($disk === self::LOCAL_DISK && filled($path)) {
+            Storage::disk(self::LOCAL_DISK)->delete($path);
         }
 
-        if ($course->upload_disk === 'cloudinary' && filled($course->upload_public_id)) {
-            $this->cloudinary->destroyRaw($course->upload_public_id);
+        if ($disk === self::CLOUDINARY_DISK && filled($publicId)) {
+            $this->cloudinary->destroyRaw($publicId);
         }
     }
 }

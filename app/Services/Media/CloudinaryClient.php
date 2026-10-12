@@ -4,6 +4,7 @@ namespace App\Services\Media;
 
 use App\Settings\MediaSettings;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -47,14 +48,36 @@ class CloudinaryClient
         ];
     }
 
-    public function destroyRaw(string $publicId): void
+    /**
+     * Cloudinary'deki bir varlığı siler. Silme "en iyi gayret"tir: eski dosya
+     * yenisi yüklendikten sonra silindiği için burada bir hata olsa bile
+     * dersin çalışması bozulmaz, ama hesapta öksüz dosya kalmasın diye
+     * başarısızlık loglanır.
+     *
+     * @return bool Silme başarılı mı?
+     */
+    public function destroyRaw(string $publicId): bool
     {
-        Http::timeout(60)
+        $response = Http::timeout(60)
             ->asForm()
             ->post($this->endpoint('destroy'), $this->signed([
                 'public_id' => $publicId,
                 'timestamp' => (string) time(),
             ]));
+
+        $result = $response->json('result');
+
+        if (! $response->successful() || ($result !== null && $result !== 'ok' && $result !== 'not found')) {
+            Log::warning('Cloudinary dosyası silinemedi; hesapta öksüz kalmış olabilir.', [
+                'public_id' => $publicId,
+                'status' => $response->status(),
+                'error' => $response->json('error.message'),
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     private function endpoint(string $action): string

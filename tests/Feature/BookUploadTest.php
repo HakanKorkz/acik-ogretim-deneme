@@ -6,6 +6,7 @@ use App\Jobs\ExtractCourseText;
 use App\Models\Course;
 use App\Models\User;
 use App\Services\Books\CourseTextExtractor;
+use App\Services\Media\BookUploader;
 use App\Services\Pdf\PdfTextExtractor;
 use App\Settings\MediaSettings;
 use Illuminate\Http\Client\Request;
@@ -154,6 +155,29 @@ test('kitap değiştirilince eski dosya silinir', function () {
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.cloudinary.com/v1_1/demo/raw/destroy'
         && $request['public_id'] === 'acik-ogretim/eski.pdf');
+});
+
+test('yeni yükleme başarısız olursa eski kitap korunur', function () {
+    configureCloudinary();
+    Http::fake(['api.cloudinary.com/*' => Http::response(['error' => ['message' => 'yükleme reddedildi']], 500)]);
+
+    $course = Course::factory()->create(['upload_disk' => 'local', 'file_path' => 'books/eski.pdf']);
+    Storage::disk('local')->put('books/eski.pdf', '%PDF');
+
+    expect(fn () => app(BookUploader::class)->store(
+        $course,
+        UploadedFile::fake()->create('yeni.pdf', 100, 'application/pdf'),
+        'cloudinary',
+    ))->toThrow(RuntimeException::class);
+
+    // Eski dosya ve işaretçi yerinde kalır; ders kullanılamaz hâle gelmez.
+    Storage::disk('local')->assertExists('books/eski.pdf');
+
+    expect($course->refresh()->file_path)->toBe('books/eski.pdf')
+        ->and($course->upload_disk)->toBe('local');
+
+    // Başarısız yüklemenin ardından silme isteği gönderilmez.
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/raw/destroy'));
 });
 
 test('MEB kataloğundaki dersin kitabı değiştirilemez', function () {
