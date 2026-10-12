@@ -71,6 +71,10 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
 
     Route::get('settings/ai', [Admin\AiSettingsController::class, 'edit'])->name('settings.ai.edit');
     Route::put('settings/ai', [Admin\AiSettingsController::class, 'update'])->name('settings.ai.update');
+    Route::post('settings/ai/models', [Admin\AiSettingsController::class, 'models'])
+        ->middleware('throttle:20,1')
+        ->name('settings.ai.models');
+
     Route::post('settings/ai/test', [Admin\AiSettingsController::class, 'test'])
         ->middleware('throttle:6,1')
         ->name('settings.ai.test');

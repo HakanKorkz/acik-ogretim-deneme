@@ -48,6 +48,7 @@ class AiSettingsRequest extends FormRequest
             'models' => ['required', 'array', 'min:1', 'max:10'],
             'models.*' => ['string', 'max:150', 'regex:/^[A-Za-z0-9._:\/@-]+$/'],
             'questions_per_request' => ['required', 'integer', 'min:1', 'max:20'],
+            'system_prompt' => ['nullable', 'string', 'max:20000'],
         ];
     }
 

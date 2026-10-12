@@ -3,7 +3,9 @@
 use App\Ai\Agents\QuestionWriter;
 use App\Models\User;
 use App\Settings\AiSettings;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
@@ -112,4 +114,74 @@ test('anahtar yoksa bağlantı testi istek göndermeden hata verir', function ()
         ->assertSessionHas('error');
 
     QuestionWriter::assertNeverPrompted();
+});
+
+test('sistem promptu kaydedilir ve özelleştirilmiş olarak kullanılır', function () {
+    $this->actingAs($this->admin)
+        ->put(route('admin.settings.ai.update'), [
+            'provider' => 'openrouter',
+            'models' => 'openrouter/free',
+            'questions_per_request' => 10,
+            'system_prompt' => 'Yalnızca şu yönergeye uy.',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $settings = app(AiSettings::class)->refresh();
+
+    expect($settings->system_prompt)->toBe('Yalnızca şu yönergeye uy.')
+        ->and($settings->systemPrompt())->toBe('Yalnızca şu yönergeye uy.');
+});
+
+test('sistem promptu boş bırakılınca ya da varsayılana eşitse null saklanır', function () {
+    $this->actingAs($this->admin)
+        ->put(route('admin.settings.ai.update'), [
+            'provider' => 'openrouter',
+            'models' => 'openrouter/free',
+            'questions_per_request' => 10,
+            'system_prompt' => 'Önce özel.',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(app(AiSettings::class)->refresh()->system_prompt)->toBe('Önce özel.');
+
+    foreach (['', QuestionWriter::defaultInstructions()] as $value) {
+        $this->actingAs($this->admin)
+            ->put(route('admin.settings.ai.update'), [
+                'provider' => 'openrouter',
+                'models' => 'openrouter/free',
+                'questions_per_request' => 10,
+                'system_prompt' => $value,
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect(app(AiSettings::class)->refresh()->system_prompt)->toBeNull();
+    }
+});
+
+test('model listesi uç noktası canlı listeyi sıralı döndürür', function () {
+    Cache::flush();
+    Http::fake(['openrouter.ai/*' => Http::response(['data' => [['id' => 'x/y'], ['id' => 'a/b']]])]);
+
+    $this->actingAs($this->admin)
+        ->postJson(route('admin.settings.ai.models'), ['provider' => 'openrouter'])
+        ->assertOk()
+        ->assertJson(['source' => 'live'])
+        ->assertJsonPath('models', ['a/b', 'x/y']);
+});
+
+test('model listesi alınamazsa sağlayıcının önerilerine düşer', function () {
+    Cache::flush();
+    Http::fake(['openrouter.ai/*' => Http::response('hata', 500)]);
+
+    $this->actingAs($this->admin)
+        ->postJson(route('admin.settings.ai.models'), ['provider' => 'openrouter'])
+        ->assertOk()
+        ->assertJson(['source' => 'fallback'])
+        ->assertJsonPath('models', ['openrouter/free']);
+});
+
+test('yönetici olmayan kullanıcı model listesini çekemez', function () {
+    $this->actingAs(User::factory()->create())
+        ->postJson(route('admin.settings.ai.models'), ['provider' => 'openrouter'])
+        ->assertForbidden();
 });

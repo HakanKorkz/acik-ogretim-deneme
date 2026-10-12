@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Ai\Agents\QuestionWriter;
 use App\Enums\AiProvider;
 use Spatie\LaravelSettings\Attributes\ShouldBeEncrypted;
 use Spatie\LaravelSettings\Settings;
@@ -32,9 +33,25 @@ class AiSettings extends Settings
     /** Tek istekte istenecek soru sayısı. */
     public int $questions_per_request;
 
+    /**
+     * Soru üreten ajanın sistem istemi. Boş (null) ise kod içindeki
+     * varsayılan istem kullanılır (`QuestionWriter::defaultInstructions()`).
+     */
+    public ?string $system_prompt;
+
     public static function group(): string
     {
         return 'ai';
+    }
+
+    /**
+     * Etkin sistem istemi: panelde özelleştirilmişse onu, yoksa varsayılanı döndürür.
+     */
+    public function systemPrompt(): string
+    {
+        return filled($this->system_prompt)
+            ? $this->system_prompt
+            : QuestionWriter::defaultInstructions();
     }
 
     public function activeProvider(): AiProvider

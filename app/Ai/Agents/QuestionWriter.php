@@ -26,13 +26,29 @@ final class QuestionWriter implements Agent, HasProviderOptions, HasStructuredOu
     /**
      * @param  list<string>  $styleExamples  Aynı dersin gerçek çıkmış soruları.
      */
+    /**
+     * @param  list<string>  $styleExamples  Aynı dersin gerçek çıkmış soruları.
+     * @param  string|null  $customInstructions  Panelden özelleştirilmiş sistem istemi; yoksa varsayılan kullanılır.
+     */
     public function __construct(
         private string $sourceText,
         private int $count,
         private array $styleExamples = [],
+        private ?string $customInstructions = null,
     ) {}
 
     public function instructions(): string
+    {
+        return filled($this->customInstructions)
+            ? $this->customInstructions
+            : self::defaultInstructions();
+    }
+
+    /**
+     * Kod içindeki varsayılan sistem istemi. Panelde özelleştirilmediyse
+     * kullanılır; panel bu metni gösterir ve "varsayılana dön" sunar.
+     */
+    public static function defaultInstructions(): string
     {
         return <<<'TXT'
         Sen Millî Eğitim Bakanlığı Açık Öğretim Lisesi (AÖL) sınavları için soru

@@ -76,7 +76,12 @@ class AiQuestionGenerator implements QuestionGenerator
      */
     private function generateForSection(string $section, int $count, array $styleExamples): array
     {
-        $agent = new QuestionWriter($this->sample($section), $count, $styleExamples);
+        $agent = new QuestionWriter(
+            $this->sample($section),
+            $count,
+            $styleExamples,
+            $this->settings->system_prompt,
+        );
 
         $questions = $this->chain->run(
             $agent,

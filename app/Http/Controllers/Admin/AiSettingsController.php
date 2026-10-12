@@ -7,10 +7,15 @@ use App\Enums\AiProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AiSettingsRequest;
 use App\Services\Ai\AiModelChain;
+use App\Services\Ai\ProviderModelCatalog;
 use App\Settings\AiSettings;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class AiSettingsController extends Controller
 {
@@ -25,7 +30,10 @@ class AiSettingsController extends Controller
                 'provider' => $settings->activeProvider()->value,
                 'models' => $settings->models,
                 'questionsPerRequest' => $settings->questions_per_request,
+                // null: panelde özelleştirilmemiş, varsayılan kullanılıyor.
+                'systemPrompt' => $settings->system_prompt,
             ],
+            'defaultSystemPrompt' => QuestionWriter::defaultInstructions(),
             'providers' => array_map(static fn (AiProvider $provider): array => [
                 'value' => $provider->value,
                 'label' => $provider->label(),
@@ -60,12 +68,52 @@ class AiSettingsController extends Controller
         /** @var list<string> $models */
         $models = array_values($request->validated('models'));
 
+        $systemPrompt = $request->validated('system_prompt');
+        $trimmed = is_string($systemPrompt) ? trim($systemPrompt) : '';
+
         $settings->provider = $request->validated('provider');
         $settings->models = $models;
         $settings->questions_per_request = (int) $request->validated('questions_per_request');
+        // Boş bırakılırsa ya da kod içindeki varsayılana eşitse null saklanır;
+        // böylece varsayılan istem güncellenirse otomatik olarak o kullanılır.
+        $settings->system_prompt = ($trimmed === '' || $trimmed === trim(QuestionWriter::defaultInstructions()))
+            ? null
+            : $systemPrompt;
         $settings->save();
 
         return to_route('admin.settings.ai.edit')->with('success', 'Yapay zekâ ayarları kaydedildi.');
+    }
+
+    /**
+     * Seçili sağlayıcının kullanılabilir modellerini döndürür (JSON).
+     *
+     * Anahtar, henüz kaydedilmemişse istek gövdesinden alınır (POST gövdesi
+     * kullanıldığı için sır adres satırına ya da günlüklere düşmez). Liste
+     * alınamazsa sağlayıcının önerdiği modellere düşülür.
+     */
+    public function models(Request $request, AiSettings $settings, ProviderModelCatalog $catalog): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider' => ['required', Rule::enum(AiProvider::class)],
+            'key' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $provider = AiProvider::from($validated['provider']);
+        $key = filled($validated['key'] ?? null) ? $validated['key'] : $settings->keyFor($provider);
+
+        try {
+            return response()->json([
+                'models' => $catalog->list($provider, $key),
+                'source' => 'live',
+                'error' => null,
+            ]);
+        } catch (Throwable $exception) {
+            return response()->json([
+                'models' => $provider->suggestedModels(),
+                'source' => 'fallback',
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**
