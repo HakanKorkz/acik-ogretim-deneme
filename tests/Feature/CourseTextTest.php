@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 test('MEB kitabı indirilir, sayfaları kaydedilir ve geçici dosya silinir', function () {
+    $existingFiles = File::glob(storage_path('app/private/tmp/*.pdf'));
+
     Http::fake([
         'aokul.gov.tr/*' => Http::response(
             file_get_contents(base_path('tests/Fixtures/pdf/uc-sayfa.pdf')),
@@ -32,7 +34,7 @@ test('MEB kitabı indirilir, sayfaları kaydedilir ve geçici dosya silinir', fu
         ->and($course->source_last_modified->toDateTimeString())->toBe('2026-09-24 18:23:00')
         ->and($course->pages()->pluck('page_number')->all())->toBe([1, 2, 3])
         ->and($course->pages()->where('page_number', 2)->value('content'))->toContain('Birinci bolum metni.')
-        ->and(File::glob(storage_path('app/private/tmp/*.pdf')))->toBe([]);
+        ->and(File::glob(storage_path('app/private/tmp/*.pdf')))->toBe($existingFiles);
 });
 
 test('kaydırma tespit edilir ve aralıktaki sayfalar basılı numaraya göre seçilir', function () {

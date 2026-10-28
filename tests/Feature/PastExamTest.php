@@ -97,7 +97,7 @@ test('kitapçık indirilir, bölümlere ayrılır ve derslerle eşlenir', functi
     Http::fake(['aol.meb.gov.tr/*' => Http::response('%PDF-sahte')]);
 
     $this->mock(PdfTextExtractor::class, function ($mock): void {
-        $mock->shouldReceive('extractPages')->andReturn(json_decode(file_get_contents(base_path('tests/Fixtures/past-exam/mart-2026-1-pages.json')), true));
+        $mock->shouldReceive('extractColumnPages')->andReturn(json_decode(file_get_contents(base_path('tests/Fixtures/past-exam/mart-2026-1-pages.json')), true));
         $mock->shouldReceive('extractWords')->andReturn(json_decode(file_get_contents(base_path('tests/Fixtures/past-exam/mart-2026-1-answer-words.json')), true));
     });
 
@@ -118,7 +118,7 @@ test('pdftotext yoksa kitapçık işlenmez ve neden bildirilir', function () {
     Http::fake(['aol.meb.gov.tr/*' => Http::response('%PDF-sahte')]);
 
     $this->mock(PdfTextExtractor::class, function ($mock): void {
-        $mock->shouldReceive('extractPages')->andReturn([1 => 'Kapak', 2 => 'CEVAP ANAHTARI']);
+        $mock->shouldReceive('extractColumnPages')->andReturn([1 => 'Kapak', 2 => 'CEVAP ANAHTARI']);
         $mock->shouldReceive('extractWords')->andReturn(null);
     });
 
@@ -196,6 +196,23 @@ test('bölüm yeniden aktarılınca aynı sorular tekrar eklenmez', function () 
     expect(Question::query()->count())->toBe(1);
 });
 
+test('eksiksiz metin sorusu yapay zekâ çağrısı olmadan cevap anahtarıyla aktarılır', function () {
+    PastQuestionExtractor::fake()->preventStrayPrompts();
+    $section = PastExamSection::factory()->for(Course::factory())->create([
+        'content' => "1. Hangi seçenek doğrudur?\nA) Birinci\nB) İkinci\nC) Üçüncü\nD) Dördüncü",
+        'answer_key' => ['1' => 'C'],
+    ]);
+
+    expect(app(PastExamImporter::class)->importSection($section))->toBe(1);
+
+    $question = $section->questions()->with('options')->sole();
+    expect($question->text)->toBe('Hangi seçenek doğrudur?');
+    expect($question->correct_option)->toBe('C');
+    expect($question->options->firstWhere('is_correct', true)->text)->toBe('Üçüncü');
+    expect($section->refresh()->status)->toBe(ImportStatus::Done);
+    PastQuestionExtractor::assertNeverPrompted();
+});
+
 test('ders eşleşmesi ya da yapay zekâ yoksa bölüm aktarılmaz', function () {
     $unmatched = PastExamSection::factory()->create(['course_id' => null]);
 
@@ -243,8 +260,13 @@ test('yönetici kitapçıkları görür, listeyi eşitler, içe aktarır ve böl
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('admin/past-exams/index')
-            ->has('pastExams', 71)
-            ->where('pastExams.0.sections.0.canRetry', true));
+            ->has('pastExams.data', 25)
+            ->where('pastExams.total', 71)
+            ->missing('pastExams.data.0.sections'));
+
+    $this->getJson(route('admin.past-exams.sections', $pastExam))
+        ->assertOk()
+        ->assertJsonPath('data.0.canRetry', true);
 
     $this->actingAs($admin)->post(route('admin.past-exams.import', $pastExam))->assertSessionHas('success');
     Queue::assertPushed(ParsePastExam::class);

@@ -38,6 +38,9 @@ Route::get('/exams/{examSession}/result', [ExamSessionController::class, 'result
  */
 Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/', Admin\DashboardController::class)->name('dashboard');
+    Route::get('guide', Admin\GuideController::class)->name('guide');
+    Route::get('questions/export', [Admin\QuestionExportController::class, 'index'])->name('questions.export.index');
+    Route::get('questions/export/download', [Admin\QuestionExportController::class, 'download'])->name('questions.export.download');
 
     Route::get('courses', [Admin\CourseController::class, 'index'])->name('courses.index');
     Route::get('courses/create', [Admin\CourseBookController::class, 'create'])->name('courses.create');
@@ -59,7 +62,15 @@ Route::middleware(['auth', 'can:access-admin'])->prefix('admin')->name('admin.')
         ->middleware('throttle:question-generation')
         ->name('courses.questions.store');
 
+    Route::get('courses/{course}/text', [Admin\CourseTextController::class, 'index'])->name('courses.text.index');
+    Route::get('courses/{course}/questions', [Admin\QuestionController::class, 'index'])->name('courses.questions.index');
+    Route::get('courses/{course}/questions/{question}/edit', [Admin\QuestionController::class, 'edit'])
+        ->scopeBindings()->name('courses.questions.edit');
+    Route::put('courses/{course}/questions/{question}', [Admin\QuestionController::class, 'update'])
+        ->scopeBindings()->withTrashed()->name('courses.questions.update');
+
     Route::get('past-exams', [Admin\PastExamController::class, 'index'])->name('past-exams.index');
+    Route::get('past-exams/{pastExam}/sections', [Admin\PastExamController::class, 'sections'])->name('past-exams.sections');
     Route::post('past-exams/sync', [Admin\PastExamController::class, 'sync'])
         ->middleware('throttle:6,1')
         ->name('past-exams.sync');

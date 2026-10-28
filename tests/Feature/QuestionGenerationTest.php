@@ -107,5 +107,5 @@ test('yönetici ders listesinde üretim durumunu görür', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('admin/courses/index')
-            ->where('courses.0.isGenerating', true));
+            ->where('courses.data.0.isGenerating', true));
 });

@@ -21,7 +21,35 @@ class PdfTextExtractor
 
     public function __construct(
         private readonly Parser $parser = new Parser,
+        private readonly ColumnTextExtractor $columnText = new ColumnTextExtractor,
     ) {}
+
+    /**
+     * Sınav kitapçığını soldan sağa sütun sırasıyla okur. Konumlu çıkarım
+     * kullanılamazsa, dersleri karıştırabilen düz metne geri dönmez.
+     *
+     * @return array<int, string>
+     */
+    public function extractColumnPages(string $path): array
+    {
+        if (! is_file($path) || ! is_readable($path)) {
+            throw new RuntimeException("PDF dosyası okunamadı: {$path}");
+        }
+
+        try {
+            $process = new Process(['pdftotext', '-bbox-layout', '-enc', 'UTF-8', $path, '-']);
+            $process->setTimeout(600);
+            $process->run();
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Kitapçık okunamadı: sunucuda `pdftotext` (poppler-utils) kurulu olmalı.', previous: $exception);
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException('Kitapçık okunamadı: `pdftotext` (poppler-utils) konumlu metni çıkaramadı.');
+        }
+
+        return $this->columnText->extract($process->getOutput());
+    }
 
     /**
      * Bir PDF dosyasının sayfalarını çıkarır.

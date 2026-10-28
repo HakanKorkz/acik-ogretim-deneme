@@ -1,10 +1,11 @@
 import FlashMessage from '@/components/flash-message';
 import { cn } from '@/lib/utils';
 import { home, logout } from '@/routes';
-import { dashboard } from '@/routes/admin';
+import { dashboard, guide } from '@/routes/admin';
 import { index as coursesIndex } from '@/routes/admin/courses';
 import { index as pastExamsIndex } from '@/routes/admin/past-exams';
 import { edit as profileEdit } from '@/routes/admin/profile';
+import { index as questionExportIndex } from '@/routes/admin/questions/export';
 import { edit as aiSettingsEdit } from '@/routes/admin/settings/ai';
 import { edit as mediaSettingsEdit } from '@/routes/admin/settings/media';
 import { Link, usePage } from '@inertiajs/react';
@@ -14,8 +15,10 @@ const navigation = [
     { label: 'Panel', href: dashboard.url() },
     { label: 'Dersler', href: coursesIndex.url() },
     { label: 'Çıkmış Sorular', href: pastExamsIndex.url() },
+    { label: 'Soruları Dışa Aktar', href: questionExportIndex.url() },
     { label: 'Yapay Zekâ', href: aiSettingsEdit.url() },
     { label: 'Depolama', href: mediaSettingsEdit.url() },
+    { label: 'Kullanım Rehberi', href: guide.url() },
     { label: 'Profil', href: profileEdit.url() },
 ];
 

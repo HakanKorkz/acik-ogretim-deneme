@@ -27,29 +27,59 @@ class CourseController extends Controller
         $filters = $request->validate([
             'level' => ['nullable', Rule::enum(CourseLevel::class)],
             'search' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'per_page' => ['nullable', 'integer', Rule::in([10, 25, 50, 100])],
+            'sort' => ['nullable', Rule::in(['default', 'name', 'questionsCount', 'isActive'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
         $level = CourseLevel::tryFrom($filters['level'] ?? '') ?? CourseLevel::Lise;
         $search = trim($filters['search'] ?? '');
+        $perPage = (int) ($filters['per_page'] ?? 25);
+        $sort = $filters['sort'] ?? 'default';
+        $direction = $filters['direction'] ?? 'asc';
 
         $courses = Course::query()
             ->where('level', $level)
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('subject', 'like', "%{$search}%")))
-            ->withCount(['questions', 'examSessions'])
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+            ->withCount(['questions', 'examSessions']);
+
+        if ($sort === 'default') {
+            $courses->orderBy('sort_order')->orderBy('name');
+        } else {
+            $sortColumn = match ($sort) {
+                'name' => 'name',
+                'questionsCount' => 'questions_count',
+                'isActive' => 'is_active',
+                default => 'name',
+            };
+
+            $courses->orderBy($sortColumn, $direction);
+        }
+
+        $courses->orderBy('id');
 
         return Inertia::render('admin/courses/index', [
-            'courses' => $courses->map(fn (Course $course): array => $this->row($course))->values(),
-            'filters' => ['level' => $level->value, 'search' => $search],
-            'levels' => array_map(static fn (CourseLevel $item): array => [
-                'value' => $item->value,
-                'label' => $item->label(),
-                'count' => Course::query()->where('level', $item)->count(),
-            ], CourseLevel::cases()),
+            'courses' => fn () => $courses->paginate($perPage)
+                ->withQueryString()
+                ->through(fn (Course $course): array => $this->row($course)),
+            'filters' => [
+                'level' => $level->value,
+                'search' => $search,
+                'sort' => $sort,
+                'direction' => $direction,
+            ],
+            'levels' => function (): array {
+                $counts = Course::query()->selectRaw('level, COUNT(*) as total')->groupBy('level')->pluck('total', 'level');
+
+                return array_map(static fn (CourseLevel $item): array => [
+                    'value' => $item->value,
+                    'label' => $item->label(),
+                    'count' => (int) ($counts[$item->value] ?? 0),
+                ], CourseLevel::cases());
+            },
             'questionsPerCourse' => (int) config('exam.questions_per_course'),
         ]);
     }

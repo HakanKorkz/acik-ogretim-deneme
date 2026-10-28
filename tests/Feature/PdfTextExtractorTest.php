@@ -15,3 +15,11 @@ test('PDF sayfaları sırasıyla ayrı ayrı çıkarılır', function () {
 test('olmayan dosya için anlaşılır hata verilir', function () {
     app(PdfTextExtractor::class)->extractPages('/yok/kitap.pdf');
 })->throws(RuntimeException::class, 'PDF dosyası okunamadı');
+
+test('konumlu PDF çıkarımı sayfa numaralarını ve metni korur', function () {
+    $pages = app(PdfTextExtractor::class)->extractColumnPages(base_path('tests/Fixtures/pdf/uc-sayfa.pdf'));
+
+    expect(array_keys($pages))->toBe([1, 2, 3]);
+    expect($pages[2])->toContain('Birinci bolum metni.');
+    expect($pages[3])->toContain('Ikinci bolum metni.');
+});

@@ -5,6 +5,8 @@ import FormField from '@/components/form-field';
 import AdminLayout from '@/layouts/admin-layout';
 import { index, update } from '@/routes/admin/courses';
 import { update as updateBook } from '@/routes/admin/courses/book';
+import { index as questionsIndex } from '@/routes/admin/courses/questions';
+import { index as textIndex } from '@/routes/admin/courses/text';
 import { Form, Head, Link } from '@inertiajs/react';
 
 interface PagePreview {
@@ -76,6 +78,23 @@ function CourseEdit({ course, scopePreview, upload }: Props) {
                 {course.questionsCount} soru
             </p>
 
+            <nav
+                aria-label="Ders içeriği"
+                className="mt-4 flex gap-4 text-sm font-semibold text-indigo-600 dark:text-indigo-400"
+            >
+                <Link
+                    href={textIndex.url(course.slug)}
+                    className="hover:underline"
+                >
+                    Kitap metnini görüntüle
+                </Link>
+                <Link
+                    href={questionsIndex.url(course.slug)}
+                    className="hover:underline"
+                >
+                    Soruları görüntüle ve düzenle ({course.questionsCount})
+                </Link>
+            </nav>
             <div className="mt-6 grid max-w-3xl gap-6">
                 {course.description && (
                     <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm shadow-sm dark:border-slate-800 dark:bg-slate-900">

@@ -31,6 +31,7 @@ class PastExamImporter
         private readonly BookletParser $parser,
         private readonly ExamCourseMatcher $matcher,
         private readonly AiModelChain $chain,
+        private readonly TextQuestionExtractor $textQuestions,
     ) {}
 
     /**
@@ -41,7 +42,7 @@ class PastExamImporter
         $path = $this->download($pastExam);
 
         try {
-            $pages = $this->pdf->extractPages($path);
+            $pages = $this->pdf->extractColumnPages($path);
             $words = $this->pdf->extractWords($path, $this->parser->answerKeyPages($pages));
         } finally {
             File::delete($path);
@@ -91,18 +92,24 @@ class PastExamImporter
             throw new RuntimeException("{$section->heading()}: cevap anahtarı okunamadı.");
         }
 
-        if (! $this->chain->isConfigured()) {
-            throw new RuntimeException('Yapay zekâ ayarlanmamış; çıkmış sorular yapılandırılamıyor.');
+        $questions = $this->textQuestions->extract($section->content, count($answerKey));
+
+        if ($questions !== null) {
+            $questions = $this->usableQuestions($questions, $answerKey);
+        } else {
+            if (! $this->chain->isConfigured()) {
+                throw new RuntimeException('Yapay zekâ ayarlanmamış; çıkmış sorular yapılandırılamıyor.');
+            }
+
+            $agent = new PastQuestionExtractor($section->heading(), $section->content);
+
+            $questions = $this->chain->run(
+                $agent,
+                $agent->payload(),
+                fn (array $output): array => $this->usableQuestions($output['questions'] ?? null, $answerKey),
+                timeout: 180,
+            );
         }
-
-        $agent = new PastQuestionExtractor($section->heading(), $section->content);
-
-        $questions = $this->chain->run(
-            $agent,
-            $agent->payload(),
-            fn (array $output): array => $this->usableQuestions($output['questions'] ?? null, $answerKey),
-            timeout: 180,
-        );
 
         if ($questions === null) {
             throw new RuntimeException("{$section->heading()}: yapay zekâ soruları ayrıştıramadı.");
