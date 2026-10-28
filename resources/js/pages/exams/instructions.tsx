@@ -41,15 +41,15 @@ function Instructions({ exam, section, isFirstSection }: Props) {
                     currentPosition={section.position}
                 />
 
-                <section className="mt-6 overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                    <header className="border-b border-slate-200 bg-slate-50 px-6 py-5 text-center dark:border-slate-800 dark:bg-slate-800/50">
-                        <p className="text-xs font-semibold tracking-widest text-slate-500 uppercase dark:text-slate-400">
+                <section className="mt-6 overflow-hidden rounded-sm border border-study-rule bg-study-surface">
+                    <header className="border-b border-study-rule bg-study-tint px-6 py-9 text-center">
+                        <p className="text-xs font-semibold tracking-widest text-study-muted uppercase">
                             {exam.levelLabel} · Deneme Sınavı
                         </p>
-                        <h1 className="mt-2 text-2xl font-bold tracking-tight">
+                        <h1 className="mt-3 font-display text-4xl tracking-tight sm:text-5xl">
                             {section.course}
                         </h1>
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        <p className="mt-1 text-sm text-study-muted">
                             {exam.sections.length > 1 &&
                                 `${section.position}. ders · `}
                             {section.totalQuestions} soru ·{' '}
@@ -60,10 +60,10 @@ function Instructions({ exam, section, isFirstSection }: Props) {
                     <div className="px-6 py-6 text-sm leading-relaxed">
                         {isFirstSection && (
                             <>
-                                <h2 className="text-center font-bold tracking-wide">
-                                    ADAYLARIN DİKKATİNE!
+                                <h2 className="font-display text-2xl">
+                                    Başlamadan önce
                                 </h2>
-                                <ol className="mt-4 list-decimal space-y-2 pl-5 text-slate-700 dark:text-slate-300">
+                                <ol className="mt-4 list-decimal space-y-2 pl-5 text-study-muted">
                                     <li>
                                         Her ders için {section.totalQuestions}{' '}
                                         soru bulunmaktadır. Her dersin cevaplama
@@ -106,7 +106,7 @@ function Instructions({ exam, section, isFirstSection }: Props) {
                                 type="button"
                                 onClick={begin}
                                 disabled={starting}
-                                className="rounded-xl bg-emerald-600 px-8 py-3 text-base font-bold tracking-wide text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                                className="rounded-sm bg-study-fill px-8 py-3 text-base font-bold tracking-wide text-study-on-fill transition hover:opacity-90 disabled:opacity-60"
                             >
                                 {starting ? 'Başlatılıyor...' : 'BAŞLAYINIZ'}
                             </button>

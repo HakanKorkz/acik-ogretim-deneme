@@ -1,3 +1,4 @@
+import StudyArrow from '@/components/study-arrow';
 import FlashMessage from '@/components/flash-message';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -105,208 +106,298 @@ function CourseSelection({
     return (
         <>
             <Head title={`${level.label} - Ders Seçimi`} />
-
             <Link
                 href={home.url()}
-                className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
+                className="inline-flex min-h-11 items-center gap-2 text-xs text-study-muted hover:text-study-ink"
             >
                 ← Kademe seçimi
             </Link>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                {level.label}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {step === 'courses'
-                    ? `Sınava gireceğin dersleri seç (en az 1, en fazla ${maxCourses}). Dersler sırayla, her biri ${questionsPerCourse} soru ve ${sectionMinutes} dakika olarak çözülür.`
-                    : 'Soru türünü ve sonuçların nasıl gösterileceğini seç.'}
-            </p>
-
+            <div className="mt-5 flex flex-wrap items-end justify-between gap-6 border-b border-study-rule pb-8">
+                <div>
+                    <p className="study-eyebrow">
+                        {level.label} · Kendi denemeni oluştur
+                    </p>
+                    <h1 className="mt-4 font-display text-5xl leading-tight tracking-[-0.04em] sm:text-6xl">
+                        {step === 'courses'
+                            ? 'Bugün ne çalışalım?'
+                            : 'Son bir hazırlık.'}
+                    </h1>
+                </div>
+                <ol
+                    aria-label="Sınav hazırlık adımları"
+                    className="flex gap-6 text-xs"
+                >
+                    <li
+                        aria-current={step === 'courses' ? 'step' : undefined}
+                        className={
+                            step === 'courses'
+                                ? 'font-semibold text-study-ink'
+                                : 'text-study-muted'
+                        }
+                    >
+                        <span className="mr-2 font-display text-xl">01</span>
+                        Dersler
+                    </li>
+                    <li
+                        aria-current={step === 'options' ? 'step' : undefined}
+                        className={
+                            step === 'options'
+                                ? 'font-semibold text-study-ink'
+                                : 'text-study-muted'
+                        }
+                    >
+                        <span className="mr-2 font-display text-xl">02</span>
+                        Tercihler
+                    </li>
+                </ol>
+            </div>
             <div className="mt-6">
                 <FlashMessage />
             </div>
-
-            {step === 'courses' ? (
-                <>
-                    {courses.length === 0 && (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900">
-                            Bu kademede henüz sınava hazır ders yok.
-                        </div>
-                    )}
-
-                    <div className="grid gap-6">
-                        {groups.map(([subject, items]) => (
-                            <section key={subject}>
-                                <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
-                                    {subject}
-                                </h2>
-                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                    {items.map((course) => {
-                                        const isSelected = selected.includes(
-                                            course.slug,
-                                        );
-                                        const total =
-                                            course.pastCount +
-                                            course.generatedCount;
-                                        const isDisabled =
-                                            total === 0 ||
-                                            (!isSelected &&
-                                                selected.length >= maxCourses);
-
-                                        return (
-                                            <button
-                                                key={course.slug}
-                                                type="button"
-                                                onClick={() =>
-                                                    toggle(course.slug)
-                                                }
-                                                disabled={isDisabled}
-                                                aria-pressed={isSelected}
-                                                className={cn(
-                                                    'flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50',
-                                                    isSelected
-                                                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20 dark:bg-indigo-950/40'
-                                                        : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900',
-                                                )}
-                                            >
-                                                <span>
-                                                    <span className="block font-medium">
-                                                        {course.name}
-                                                    </span>
-                                                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                                                        {total === 0
-                                                            ? 'Sorular hazırlanıyor'
-                                                            : course.pastCount >
-                                                                0
-                                                              ? `${course.pastCount} çıkmış soru · ${course.generatedCount} soru`
-                                                              : `${course.generatedCount} soru`}
-                                                    </span>
-                                                </span>
-                                                <span
+            {Object.keys(errors).length > 0 && (
+                <div
+                    role="alert"
+                    className="mb-6 border-l-2 border-study-accent bg-study-surface p-4 text-sm text-study-accent"
+                >
+                    {Object.values(errors).map((error) => (
+                        <p key={error}>{error}</p>
+                    ))}
+                </div>
+            )}
+            <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-14">
+                <div>
+                    <p className="mb-7 max-w-xl text-sm leading-7 text-study-muted">
+                        {step === 'courses'
+                            ? `Bir ya da birkaç dersle başlayabilirsin. En fazla ${maxCourses} ders seç; her birini sırayla, ${questionsPerCourse} soru ve ${sectionMinutes} dakika üzerinden çöz.`
+                            : 'Denemenin soru kaynağını ve sonuçları nasıl görmek istediğini belirle. Ardından sınav kitapçığın hazır.'}
+                    </p>
+                    {step === 'courses' ? (
+                        <div className="space-y-9">
+                            {courses.length === 0 && (
+                                <div className="study-panel border-dashed text-sm text-study-muted">
+                                    Bu kademede henüz sınava hazır ders yok.
+                                    İçerikler hazır olduğunda burada görünecek.
+                                </div>
+                            )}
+                            {groups.map(([subject, items], groupIndex) => (
+                                <section key={subject}>
+                                    <h2 className="mb-3 flex items-center gap-3 text-xs font-semibold tracking-wide uppercase">
+                                        <span className="font-display text-lg font-normal text-study-accent">
+                                            {String(groupIndex + 1).padStart(
+                                                2,
+                                                '0',
+                                            )}
+                                        </span>
+                                        {subject}
+                                    </h2>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        {items.map((course) => {
+                                            const isSelected =
+                                                selected.includes(course.slug);
+                                            const total =
+                                                course.pastCount +
+                                                course.generatedCount;
+                                            const isDisabled =
+                                                total === 0 ||
+                                                (!isSelected &&
+                                                    selected.length >=
+                                                        maxCourses);
+                                            return (
+                                                <button
+                                                    key={course.slug}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        toggle(course.slug)
+                                                    }
+                                                    disabled={isDisabled}
+                                                    aria-pressed={isSelected}
                                                     className={cn(
-                                                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold',
+                                                        'flex min-h-24 items-center justify-between gap-4 border p-5 text-left transition disabled:cursor-not-allowed disabled:opacity-45',
                                                         isSelected
-                                                            ? 'border-indigo-600 bg-indigo-600 text-white'
-                                                            : 'border-slate-300 dark:border-slate-600',
+                                                            ? 'border-study-ink bg-study-tint'
+                                                            : 'border-study-rule bg-study-surface hover:border-study-ink',
                                                     )}
                                                 >
-                                                    {isSelected ? '✓' : ''}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                                                    <span>
+                                                        <span className="block text-sm font-semibold">
+                                                            {course.name}
+                                                        </span>
+                                                        <span className="mt-1 block text-[11px] leading-5 text-study-muted">
+                                                            {total === 0
+                                                                ? 'Sorular hazırlanıyor'
+                                                                : course.pastCount >
+                                                                    0
+                                                                  ? `${course.pastCount} çıkmış · ${course.generatedCount} çalışma sorusu`
+                                                                  : `${course.generatedCount} çalışma sorusu`}
+                                                        </span>
+                                                    </span>
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={cn(
+                                                            'flex h-6 w-6 shrink-0 items-center justify-center border text-xs',
+                                                            isSelected
+                                                                ? 'border-study-fill bg-study-fill text-study-on-fill'
+                                                                : 'border-study-muted',
+                                                        )}
+                                                    >
+                                                        {isSelected ? '✓' : '+'}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-7">
+                            <fieldset className="study-panel">
+                                <legend className="px-2 font-display text-2xl">
+                                    Soru kaynağın
+                                </legend>
+                                <div className="grid gap-3">
+                                    {pools.map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={cn(
+                                                'flex min-h-14 cursor-pointer items-center gap-3 border p-4 text-sm',
+                                                pool === option.value
+                                                    ? 'border-study-ink bg-study-tint'
+                                                    : 'border-study-rule',
+                                            )}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="pool"
+                                                value={option.value}
+                                                checked={pool === option.value}
+                                                onChange={() =>
+                                                    setPool(option.value)
+                                                }
+                                                className="h-4 w-4"
+                                            />
+                                            {option.label}
+                                        </label>
+                                    ))}
                                 </div>
-                            </section>
-                        ))}
-                    </div>
-
-                    <div className="sticky bottom-4 mt-8 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-                        <p className="text-sm">
-                            <strong>{selected.length}</strong> / {maxCourses}{' '}
-                            ders seçildi
+                                {missingInPool.length ===
+                                    selectedCourses.length && (
+                                    <p
+                                        role="status"
+                                        className="mt-4 text-sm text-study-accent"
+                                    >
+                                        Seçtiğin derslerde bu türden soru yok;
+                                        başka bir soru türü seç.
+                                    </p>
+                                )}
+                            </fieldset>
+                            <fieldset className="study-panel">
+                                <legend className="px-2 font-display text-2xl">
+                                    Sonuçları ne zaman görelim?
+                                </legend>
+                                <div className="grid gap-3">
+                                    {resultModes.map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={cn(
+                                                'flex min-h-14 cursor-pointer items-center gap-3 border p-4 text-sm',
+                                                resultMode === option.value
+                                                    ? 'border-study-ink bg-study-tint'
+                                                    : 'border-study-rule',
+                                            )}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="result_mode"
+                                                value={option.value}
+                                                checked={
+                                                    resultMode === option.value
+                                                }
+                                                onChange={() =>
+                                                    setResultMode(option.value)
+                                                }
+                                                className="h-4 w-4"
+                                            />
+                                            {option.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </fieldset>
+                            <button
+                                type="button"
+                                onClick={() => setStep('courses')}
+                                className="study-button study-button-secondary"
+                            >
+                                ← Derslere dön
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <aside
+                    aria-label="Deneme özeti"
+                    className="border-t-2 border-study-ink bg-study-tint p-6 lg:sticky lg:top-24"
+                >
+                    <p className="study-eyebrow text-study-muted">
+                        Senin çalışma planın
+                    </p>
+                    <h2 className="mt-3 font-display text-3xl tracking-tight">
+                        Deneme defterin.
+                    </h2>
+                    <p role="status" className="mt-3 text-xs text-study-muted">
+                        {selected.length} / {maxCourses} ders seçildi
+                    </p>
+                    {selectedCourses.length > 0 ? (
+                        <ol className="mt-6 divide-y divide-study-rule border-y border-study-rule">
+                            {selectedCourses.map((course, index) => (
+                                <li
+                                    key={course.slug}
+                                    className="flex gap-3 py-3 text-sm"
+                                >
+                                    <span className="text-xs text-study-muted">
+                                        {String(index + 1).padStart(2, '0')}
+                                    </span>
+                                    <span>
+                                        {course.name}
+                                        {step === 'options' &&
+                                            availableIn(course, pool) === 0 && (
+                                                <span className="mt-1 block text-xs text-study-accent">
+                                                    Bu kaynakta soru yok;
+                                                    atlanacak.
+                                                </span>
+                                            )}
+                                    </span>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : (
+                        <p className="mt-6 border-y border-study-rule py-6 text-sm leading-6 text-study-muted">
+                            Derslerden birini seçerek başlayabilirsin.
                         </p>
+                    )}
+                    <dl className="mt-5 flex justify-between text-xs text-study-muted">
+                        <div>
+                            <dt>Her ders</dt>
+                            <dd className="mt-1 text-sm font-semibold text-study-ink">
+                                {questionsPerCourse} soru
+                            </dd>
+                        </div>
+                        <div className="text-right">
+                            <dt>Süre</dt>
+                            <dd className="mt-1 text-sm font-semibold text-study-ink">
+                                {sectionMinutes} dakika / ders
+                            </dd>
+                        </div>
+                    </dl>
+                    {step === 'courses' ? (
                         <button
                             type="button"
                             onClick={() => setStep('options')}
                             disabled={selected.length === 0}
-                            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="study-button mt-7 w-full justify-between"
                         >
-                            Devam et →
+                            Tercihlere geç<span aria-hidden="true">→</span>
                         </button>
-                    </div>
-                </>
-            ) : (
-                <div className="grid max-w-3xl gap-6">
-                    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                        <h2 className="font-semibold">
-                            Seçilen dersler (çözülme sırası)
-                        </h2>
-                        <ol className="mt-3 grid gap-1 text-sm">
-                            {selectedCourses.map((course, index) => (
-                                <li key={course.slug}>
-                                    {index + 1}. {course.name}
-                                    {availableIn(course, pool) === 0 && (
-                                        <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                                            (bu soru türünde sorusu yok,
-                                            atlanacak)
-                                        </span>
-                                    )}
-                                </li>
-                            ))}
-                        </ol>
-                        <button
-                            type="button"
-                            onClick={() => setStep('courses')}
-                            className="mt-3 text-sm text-indigo-600 hover:underline dark:text-indigo-400"
-                        >
-                            Dersleri değiştir
-                        </button>
-                        {errors.courses && (
-                            <p className="mt-2 text-sm text-rose-600">
-                                {errors.courses}
-                            </p>
-                        )}
-                    </section>
-
-                    <fieldset className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                        <legend className="px-1 font-semibold">
-                            Soru türü
-                        </legend>
-                        <div className="mt-2 grid gap-2">
-                            {pools.map((option) => (
-                                <label
-                                    key={option.value}
-                                    className="flex items-center gap-3 text-sm"
-                                >
-                                    <input
-                                        type="radio"
-                                        name="pool"
-                                        value={option.value}
-                                        checked={pool === option.value}
-                                        onChange={() => setPool(option.value)}
-                                    />
-                                    {option.label}
-                                </label>
-                            ))}
-                        </div>
-                        {missingInPool.length === selectedCourses.length && (
-                            <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
-                                Seçtiğin derslerde bu türden soru yok; başka bir
-                                soru türü seç.
-                            </p>
-                        )}
-                    </fieldset>
-
-                    <fieldset className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                        <legend className="px-1 font-semibold">Sonuçlar</legend>
-                        <div className="mt-2 grid gap-2">
-                            {resultModes.map((option) => (
-                                <label
-                                    key={option.value}
-                                    className="flex items-center gap-3 text-sm"
-                                >
-                                    <input
-                                        type="radio"
-                                        name="result_mode"
-                                        value={option.value}
-                                        checked={resultMode === option.value}
-                                        onChange={() =>
-                                            setResultMode(option.value)
-                                        }
-                                    />
-                                    {option.label}
-                                </label>
-                            ))}
-                        </div>
-                    </fieldset>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setStep('courses')}
-                            className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                        >
-                            ← Geri
-                        </button>
+                    ) : (
                         <button
                             type="button"
                             onClick={submit}
@@ -314,15 +405,18 @@ function CourseSelection({
                                 submitting ||
                                 missingInPool.length === selectedCourses.length
                             }
-                            className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="study-button mt-7 w-full justify-between"
                         >
-                            {submitting
-                                ? 'Hazırlanıyor...'
-                                : 'Sınav kitapçığını oluştur'}
+                            {submitting ? 'Hazırlanıyor…' : 'Kitapçığı oluştur'}
+                            <StudyArrow />
                         </button>
-                    </div>
-                </div>
-            )}
+                    )}
+                    <p className="mt-4 text-[11px] leading-5 text-study-muted">
+                        Süren, kitapçık hazırlandıktan sonra Başlayınız
+                        düğmesine bastığında başlar.
+                    </p>
+                </aside>
+            </div>
         </>
     );
 }

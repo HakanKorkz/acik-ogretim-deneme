@@ -41,6 +41,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install PDF text extraction tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y poppler-utils
+
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:

@@ -9,3 +9,290 @@
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 }
+
+@theme inline {
+    --font-display: Georgia, 'Times New Roman', serif;
+    --color-study-paper: var(--study-paper);
+    --color-study-surface: var(--study-surface);
+    --color-study-ink: var(--study-ink);
+    --color-study-muted: var(--study-muted);
+    --color-study-rule: var(--study-rule);
+    --color-study-accent: var(--study-accent);
+    --color-study-tint: var(--study-tint);
+    --color-study-fill: var(--study-fill);
+    --color-study-on-fill: var(--study-on-fill);
+}
+
+.student-app {
+    --study-paper: #f5f2e9;
+    --study-surface: #fffdf8;
+    --study-ink: #203d32;
+    --study-muted: #626b60;
+    --study-rule: #cbd0c3;
+    --study-accent: #a43e2b;
+    --study-tint: #e6eadd;
+    --study-fill: #203d32;
+    --study-on-fill: #faf7ef;
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    .student-app {
+        --study-paper: #16221c;
+        --study-surface: #1c2c24;
+        --study-ink: #eeeede;
+        --study-muted: #b3beae;
+        --study-rule: #47594a;
+        --study-accent: #e6a28a;
+        --study-tint: #2b3d30;
+        --study-fill: #d4dfbf;
+        --study-on-fill: #18261d;
+        color-scheme: dark;
+    }
+}
+
+@layer components {
+    .study-container {
+        margin-inline: auto;
+        max-width: 1248px;
+        padding-inline: clamp(1.25rem, 4vw, 3rem);
+    }
+    .study-eyebrow {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+    .study-button {
+        display: inline-flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        background: var(--study-fill);
+        color: var(--study-on-fill);
+        border: 1px solid var(--study-fill);
+        padding: 0.85rem 1.4rem;
+        font-size: 13px;
+        font-weight: 600;
+        transition:
+            background 0.2s,
+            transform 0.2s;
+    }
+    .study-button:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.15);
+    }
+    .study-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+        transform: none;
+    }
+    .study-button-secondary {
+        background: transparent;
+        color: var(--study-ink);
+        border-color: var(--study-rule);
+    }
+    .study-button-secondary:hover {
+        background: var(--study-tint);
+        filter: none;
+    }
+    .study-panel {
+        border: 1px solid var(--study-rule);
+        background: var(--study-surface);
+        padding: clamp(1.25rem, 3vw, 2.5rem);
+    }
+    .study-level {
+        display: block;
+        padding: clamp(1.5rem, 3vw, 2.5rem);
+        background: var(--study-tint);
+        border: 1px solid var(--study-rule);
+        transition: background 0.25s;
+    }
+    .study-level:hover {
+        background: var(--study-surface);
+    }
+    .study-level-primary {
+        background: var(--study-fill);
+        color: var(--study-on-fill);
+        border-color: var(--study-fill);
+    }
+    .study-level-primary:hover {
+        background: var(--study-fill);
+        filter: brightness(1.12);
+    }
+}
+
+.student-app :where(a, button, input, select, textarea):focus-visible {
+    outline: 2px solid var(--study-accent);
+    outline-offset: 5px;
+}
+.student-app input {
+    accent-color: var(--study-fill);
+}
+.student-app :where(article[id], section[id]) {
+    scroll-margin-top: 11rem;
+}
+.study-skip {
+    position: fixed;
+    top: -100px;
+    left: 1rem;
+    padding: 1rem;
+    background: var(--study-fill);
+    color: var(--study-on-fill);
+    z-index: 100;
+}
+.study-skip:focus {
+    top: 1rem;
+}
+
+.study-book-scene {
+    position: relative;
+    height: 510px;
+    min-width: 0;
+    background: #e5e8db;
+    color: #203d32;
+    overflow: hidden;
+}
+.study-scene-caption {
+    position: absolute;
+    inset: 20px 23px auto;
+    display: flex;
+    justify-content: space-between;
+    font-size: 8px;
+    letter-spacing: 0.16em;
+}
+.study-book-back {
+    position: absolute;
+    top: 15%;
+    left: 36%;
+    width: 51%;
+    height: 69%;
+    padding: 20px;
+    background: #294c3b;
+    color: #e5ead7;
+    transform: rotate(12deg);
+    box-shadow:
+        3px 5px 0 #78917c,
+        15px 25px 35px #203d3220;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.study-book-back > span:first-child {
+    font-size: 8px;
+    letter-spacing: 0.13em;
+}
+.study-book-back > span:last-child {
+    font-family: Georgia, serif;
+    font-size: 22px;
+    line-height: 1.1;
+}
+.study-cover-arches {
+    position: absolute;
+    inset: 60px 20px 85px;
+    overflow: hidden;
+}
+.study-cover-arches i {
+    position: absolute;
+    width: 130%;
+    height: 150%;
+    border: 1px solid #9caf8a;
+    border-radius: 50% 50% 0 0;
+    top: 0;
+    left: -15%;
+}
+.study-cover-arches i:nth-child(2) {
+    inset: 15px auto auto -15%;
+}
+.study-cover-arches i:nth-child(3) {
+    inset: 30px auto auto -15%;
+}
+.study-cover-arches i:nth-child(4) {
+    inset: 45px auto auto -15%;
+}
+.study-book-front {
+    position: absolute;
+    top: 19%;
+    left: 12%;
+    width: 55%;
+    height: 70%;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    background: #fcf8ec;
+    color: #203d32;
+    border-left: 6px solid #e0ddcf;
+    transform: rotate(-9deg);
+    box-shadow:
+        3px 4px 0 #c9cebc,
+        7px 8px 0 #f9f4e6,
+        17px 24px 25px #203d322b;
+}
+.study-book-note {
+    position: absolute;
+    bottom: 29px;
+    right: 18px;
+    font-size: 10px;
+    line-height: 1.7;
+    transform: rotate(-7deg);
+}
+.study-enter {
+    animation: study-enter 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.study-book-scene.study-enter {
+    animation-delay: 0.1s;
+}
+@keyframes study-enter {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@media (max-width: 1023px) and (min-width: 640px) {
+    .study-book-scene {
+        height: 490px;
+    }
+    .study-book-front {
+        left: 19%;
+        width: 42%;
+    }
+    .study-book-back {
+        left: 43%;
+        width: 39%;
+    }
+}
+@media (max-width: 639px) {
+    .study-book-scene {
+        height: 410px;
+    }
+    .study-book-front {
+        padding: 17px;
+        width: 60%;
+        left: 8%;
+        height: 73%;
+        top: 17%;
+    }
+    .study-book-back {
+        width: 53%;
+        left: 36%;
+    }
+    .study-book-note {
+        bottom: 15px;
+        right: 10px;
+        font-size: 9px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .student-app *,
+    .student-app *::before,
+    .student-app *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}

@@ -33,10 +33,10 @@ export default function SectionProgress({
                     className={cn(
                         'rounded-full px-3 py-1 font-medium',
                         section.position === currentPosition
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-study-fill text-study-on-fill'
                             : section.isCompleted
                               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                              : 'bg-study-tint text-study-muted',
                     )}
                 >
                     {section.position}. {section.course}

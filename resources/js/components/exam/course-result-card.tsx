@@ -23,20 +23,20 @@ export default function CourseResultCard({
     passScore: number;
 }) {
     return (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="rounded-sm border border-study-rule bg-study-surface p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <p className="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+                    <p className="text-xs font-medium tracking-wide text-study-muted uppercase">
                         {result.subject}
                     </p>
-                    <h2 className="text-xl font-bold tracking-tight">
+                    <h2 className="mt-2 font-display text-3xl tracking-tight">
                         {result.course}
                     </h2>
                 </div>
                 <div className="text-right">
                     <p
                         className={cn(
-                            'text-4xl font-black tabular-nums',
+                            'font-display text-6xl tracking-tight tabular-nums',
                             result.passed
                                 ? 'text-emerald-600'
                                 : 'text-rose-600',
@@ -57,20 +57,15 @@ export default function CourseResultCard({
                     </p>
                 </div>
             </div>
-            <dl className="mt-5 grid grid-cols-4 gap-3 text-center">
+            <dl className="mt-7 grid grid-cols-4 divide-x divide-study-rule border-t border-study-rule pt-5 text-center">
                 {[
                     ['Soru', result.total, ''],
                     ['Doğru', result.correct, 'text-emerald-600'],
                     ['Yanlış', result.wrong, 'text-rose-600'],
-                    ['Boş', result.blank, 'text-slate-500'],
+                    ['Boş', result.blank, 'text-study-muted'],
                 ].map(([label, value, tone]) => (
-                    <div
-                        key={label}
-                        className="rounded-xl bg-slate-50 py-3 dark:bg-slate-800/60"
-                    >
-                        <dt className="text-xs text-slate-500 dark:text-slate-400">
-                            {label}
-                        </dt>
+                    <div key={label} className="py-3">
+                        <dt className="text-xs text-study-muted">{label}</dt>
                         <dd
                             className={cn(
                                 'text-2xl font-bold tabular-nums',

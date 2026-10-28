@@ -1,46 +1,104 @@
+import StudyArrow from '@/components/study-arrow';
 import { home } from '@/routes';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+function BookMark() {
     return (
-        <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-            <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/80">
-                <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+        <svg
+            viewBox="0 0 36 36"
+            fill="none"
+            aria-hidden="true"
+            className="h-9 w-9"
+        >
+            <path
+                d="M18 29V9M18 12C13 7 8 7 4 8v17c5-1 9 0 14 4 5-4 9-5 14-4V8c-4-1-9-1-14 4Z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M8 13c2.5 0 4 .5 6 2M8 18c2.5 0 4 .5 6 2M22 15c2-1.5 3.5-2 6-2M22 20c2-1.5 3.5-2 6-2"
+                stroke="currentColor"
+                strokeWidth="1.3"
+            />
+        </svg>
+    );
+}
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+    const { component } = usePage();
+    const inExam = component.startsWith('exams/');
+
+    return (
+        <div className="student-app flex min-h-screen flex-col bg-study-paper text-study-ink">
+            <a href="#ana-icerik" className="study-skip">
+                İçeriğe geç
+            </a>
+            <header className="sticky top-0 z-30 h-16 border-b border-study-rule bg-study-paper">
+                <div className="study-container flex h-full items-center justify-between gap-4">
                     <Link
                         href={home.url()}
-                        className="flex items-center gap-3 rounded-lg transition hover:opacity-90"
+                        aria-label="Açık Öğretim Deneme ana sayfa"
+                        className="flex shrink-0 items-center gap-2.5"
                     >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white shadow-lg shadow-indigo-500/30">
-                            A
-                        </span>
-                        <span className="flex flex-col leading-tight">
-                            <span className="text-sm font-semibold tracking-tight sm:text-base">
-                                Açık Öğretim Deneme
-                            </span>
-                            <span className="text-[11px] text-slate-500 sm:text-xs dark:text-slate-400">
-                                Lise ve Ortaokul Deneme Sınavları
+                        <BookMark />
+                        <span className="text-[13px] leading-tight font-semibold tracking-tight sm:text-sm">
+                            Açık Öğretim
+                            <span className="block font-normal text-study-muted">
+                                Deneme Sınavları
                             </span>
                         </span>
                     </Link>
-
-                    <nav className="flex items-center gap-1 text-sm font-medium">
+                    <nav
+                        aria-label="Ana menü"
+                        className="flex items-center gap-7 text-xs font-medium sm:text-sm"
+                    >
+                        {!inExam && (
+                            <a
+                                href={`${home.url()}#nasil-calisir`}
+                                className="hidden py-3 text-study-muted transition hover:text-study-ink sm:block"
+                            >
+                                Nasıl çalışır?
+                            </a>
+                        )}
                         <Link
-                            href={home.url()}
-                            className="rounded-lg px-3 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                            href={
+                                inExam ? home.url() : `${home.url()}#sinavlar`
+                            }
+                            className="inline-flex min-h-11 items-center gap-3 border-b border-study-ink font-semibold"
                         >
-                            Sınavlar
+                            {inExam ? 'Ana sayfa' : 'Sınavları keşfet'}
+                            <StudyArrow />
                         </Link>
                     </nav>
                 </div>
             </header>
-
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+            <main
+                id="ana-icerik"
+                tabIndex={-1}
+                className="study-container w-full flex-1 py-8 outline-none sm:py-12"
+            >
                 {children}
             </main>
-
-            <footer className="border-t border-slate-200/70 py-6 text-center text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
-                Laravel · Inertia.js · React · Tailwind CSS ile geliştirildi
+            <footer className="mt-12 border-t border-study-rule">
+                <div className="study-container grid gap-6 py-8 text-xs text-study-muted sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div>
+                        <p className="font-display text-2xl text-study-ink">
+                            Her deneme, bir adım ileri.
+                        </p>
+                        <p className="mt-3 max-w-sm leading-relaxed">
+                            Açık öğretim lise ve ortaokul öğrencileri için
+                            <br className="hidden sm:block" /> kendi hızında
+                            çalışabileceğin bir sınav alanı.
+                        </p>
+                    </div>
+                    <p className="max-w-64 leading-relaxed sm:text-right">
+                        Bağımsız bir çalışma platformudur.
+                        <br />
+                        Millî Eğitim Bakanlığının resmî sitesi değildir.
+                    </p>
+                </div>
             </footer>
         </div>
     );

@@ -33,28 +33,40 @@ function ExamResult({ exam, results, totals }: Props) {
         <>
             <Head title="Sınav Sonucu" />
 
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Sınav Sonuç Belgesi
+            <h1 className="font-display text-5xl tracking-[-0.04em] sm:text-6xl">
+                Her deneme bir şey öğretir.
             </h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-sm text-study-muted">
                 {exam.levelLabel} · {exam.pool} · {totals.courses} ders,{' '}
                 {totals.passed} başarılı · {totals.correct}/{totals.questions}{' '}
                 doğru
             </p>
 
-            <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div className="mt-6 hidden overflow-x-auto rounded-sm border border-study-rule bg-study-surface sm:block">
                 <table className="w-full text-left text-sm">
-                    <thead className="border-b border-slate-300 bg-slate-50 text-xs uppercase dark:border-slate-700 dark:bg-slate-800/60">
+                    <thead className="border-b border-study-rule bg-study-paper text-xs uppercase">
                         <tr>
-                            <th className="px-4 py-3">Ders</th>
-                            <th className="px-3 py-3 text-center">Doğru</th>
-                            <th className="px-3 py-3 text-center">Yanlış</th>
-                            <th className="px-3 py-3 text-center">Boş</th>
-                            <th className="px-3 py-3 text-center">Puan</th>
-                            <th className="px-4 py-3 text-center">Sonuç</th>
+                            <th scope="col" className="px-4 py-3">
+                                Ders
+                            </th>
+                            <th scope="col" className="px-3 py-3 text-center">
+                                Doğru
+                            </th>
+                            <th scope="col" className="px-3 py-3 text-center">
+                                Yanlış
+                            </th>
+                            <th scope="col" className="px-3 py-3 text-center">
+                                Boş
+                            </th>
+                            <th scope="col" className="px-3 py-3 text-center">
+                                Puan
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-center">
+                                Sonuç
+                            </th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tbody className="divide-y divide-study-rule">
                         {results.map((result) => (
                             <tr key={result.position}>
                                 <td className="px-4 py-3 font-medium">
@@ -91,14 +103,23 @@ function ExamResult({ exam, results, totals }: Props) {
                     </tbody>
                 </table>
             </div>
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="mt-6 grid gap-4 sm:hidden">
+                {results.map((result) => (
+                    <CourseResultCard
+                        key={result.position}
+                        result={result}
+                        passScore={exam.passScore}
+                    />
+                ))}
+            </div>
+            <p className="mt-2 text-xs text-study-muted">
                 Puan 100 üzerindendir; geçme notu {exam.passScore}.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                     href={coursesIndex.url(exam.level)}
-                    className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                    className="rounded-sm bg-study-fill px-5 py-2.5 text-sm font-semibold text-study-on-fill transition hover:opacity-90"
                 >
                     Yeni sınava gir
                 </Link>
@@ -122,11 +143,11 @@ function ExamResult({ exam, results, totals }: Props) {
                                         : result.position,
                                 )
                             }
-                            className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                            className="flex w-full items-center justify-between rounded-sm border border-study-rule bg-study-surface px-4 py-3 text-left text-sm font-semibold"
                             aria-expanded={openCourse === result.position}
                         >
                             {result.course}
-                            <span className="text-slate-400">
+                            <span className="text-study-muted">
                                 {openCourse === result.position ? '−' : '+'}
                             </span>
                         </button>

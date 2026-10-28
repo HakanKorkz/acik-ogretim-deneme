@@ -26,10 +26,10 @@ export default function CopyJsonButton({
             type="button"
             onClick={copy}
             className={cn(
-                'rounded-xl border px-5 py-2.5 text-sm font-semibold shadow-sm transition',
+                'rounded-sm border px-5 py-2.5 text-sm font-semibold transition',
                 state === 'error'
                     ? 'border-rose-300 text-rose-700 dark:border-rose-800 dark:text-rose-300'
-                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+                    : 'border-study-rule bg-study-surface text-study-muted hover:bg-study-tint',
                 className,
             )}
         >

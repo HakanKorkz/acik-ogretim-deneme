@@ -37,14 +37,14 @@ function SectionResult({ exam, result, hasNextSection }: Props) {
                     {hasNextSection && next ? (
                         <Link
                             href={show.url(exam.id)}
-                            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                            className="rounded-sm bg-study-fill px-5 py-2.5 text-sm font-semibold text-study-on-fill transition hover:opacity-90"
                         >
                             Sıradaki ders: {next.course} →
                         </Link>
                     ) : (
                         <Link
                             href={examResult.url(exam.id)}
-                            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                            className="rounded-sm bg-study-fill px-5 py-2.5 text-sm font-semibold text-study-on-fill transition hover:opacity-90"
                         >
                             Toplu sonucu gör →
                         </Link>
@@ -52,7 +52,7 @@ function SectionResult({ exam, result, hasNextSection }: Props) {
                     <button
                         type="button"
                         onClick={() => setShowReview((value) => !value)}
-                        className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+                        className="rounded-sm border border-study-rule px-5 py-2.5 text-sm font-semibold text-study-muted transition hover:bg-study-tint"
                     >
                         {showReview
                             ? 'Cevap anahtarını gizle'
